@@ -4,6 +4,7 @@
 import { createKeyPairSignerFromBytes, type KeyPairSigner } from "@solana/kit";
 import { base58 } from "@scure/base";
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
+import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { ExactSvmScheme } from "@x402/svm/exact/client";
 import { SOLANA_DEVNET, USDC_DECIMALS, baseUrl, env } from "./config";
 import { merchantById } from "./merchants";
@@ -76,9 +77,15 @@ async function payAndFetchInner(merchantId: string, reason: string): Promise<Pay
     const res = await fetchWithPayment(url, { method: "GET" });
     if (!res.ok) {
       const body = await res.text();
+      // On a rejected payment the facilitator's reason is in this header, not the body.
+      const required = res.headers.get("PAYMENT-REQUIRED");
+      let why = body.slice(0, 300);
+      if (required) {
+        try { why = decodePaymentRequiredHeader(required).error ?? why; } catch {}
+      }
       const receipt = await addReceipt({
         merchant: merchant.id, url, amount_usdc: amountUsdc, reason, status: "failed",
-        detail: `HTTP ${res.status}: ${body.slice(0, 300)}`,
+        detail: `HTTP ${res.status}: ${why}`,
       });
       return { ok: false, receipt, error: receipt.detail! };
     }

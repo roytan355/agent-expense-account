@@ -31,7 +31,7 @@ const lines = [
   `MERCHANT_PRIVATE_KEY=${merchant.secret}`,
   `MERCHANT_PAY_TO=${merchant.address}`,
   "SOLANA_RPC_URL=https://api.devnet.solana.com",
-  "FACILITATOR_URL=https://x402.org/facilitator",
+  "# FACILITATOR_URL=https://x402.org/facilitator  (unset = in-process facilitator)",
   "ANTHROPIC_API_KEY=",
   "",
 ];
