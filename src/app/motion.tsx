@@ -28,3 +28,30 @@ export function SmoothScroll() {
 
   return <ReactLenis root options={{ autoRaf: false, anchors: true, lerp: 0.1 }} ref={ref} />;
 }
+
+// Night falls as the console scrolls in: the overlay's opacity follows the
+// scroll, and the page chrome switches to dark once the console takes over.
+export function NightFall({ target }: { target: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const tween = gsap.to(el, {
+      opacity: 1,
+      ease: "none",
+      scrollTrigger: {
+        trigger: target,
+        start: "top bottom",
+        end: "top 55%",
+        scrub: true,
+        onUpdate: (st) => document.documentElement.classList.toggle("night", st.progress > 0.6),
+      },
+    });
+    return () => {
+      tween.scrollTrigger?.kill();
+      tween.kill();
+      document.documentElement.classList.remove("night");
+    };
+  }, [target]);
+  return <div ref={ref} className="nightfall" aria-hidden />;
+}

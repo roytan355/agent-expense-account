@@ -94,7 +94,15 @@ export function useLedger() {
   return { ledger, wallets, refresh };
 }
 
+const TASKS = [
+  "Buy me two milks",
+  "What's USD/CAD right now?",
+  "Buy a dozen eggs and a loaf of bread",
+  "Get me the premium market report",
+];
+
 export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; wallets: Wallets | null; refresh: () => void }) {
+  const [tab, setTab] = useState<"rules" | "safety" | "merchants">("rules");
   if (!ledger) return <p className="muted">Loading the account…</p>;
 
   const { policy } = ledger;
@@ -102,25 +110,24 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
   // eslint-disable-next-line react-hooks/purity
   const expired = new Date(policy.expires_at).getTime() < Date.now();
   const pct = Math.min(100, (ledger.spent_today / policy.per_day_max_usdc) * 100);
+  const off = policy.paused || expired;
 
   return (
     <div className="console">
-      <section className="meter glass" aria-label="Spending today">
-        <div className="meter-head">
-          <div className="meter-figures">
-            <span className="meter-spent">{usd(ledger.spent_today)}</span>
-            <span className="meter-of">spent today of a {usd(policy.per_day_max_usdc)} daily limit</span>
+      <section className="meter" aria-label="Spending today">
+        <div className="meter-spent num">{usd(ledger.spent_today)}</div>
+        <div className="meter-mid">
+          <div className="meter-of">spent today of your <strong className="num">{usd(policy.per_day_max_usdc)}</strong> daily limit</div>
+          <div className="bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+            <div className={`bar-fill ${pct >= 100 ? "full" : ""}`} style={{ width: `${pct}%` }} />
           </div>
           <div className="wallets">
             <WalletLine label="Agent wallet" w={wallets?.agent} />
             <WalletLine label="Merchant wallet" w={wallets?.merchant} />
           </div>
         </div>
-        <div className="bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-          <div className={`bar-fill ${pct >= 100 ? "full" : ""}`} style={{ width: `${pct}%` }} />
-        </div>
         <div className="meter-state">
-          <span className={`state ${policy.paused || expired ? "off" : "on"}`}>
+          <span className={`state ${off ? "off" : "on"}`}>
             {policy.paused ? "Spending paused" : expired ? "Card expired" : "Spending allowed"}
           </span>
           <button className={policy.paused ? "btn" : "btn danger"} onClick={async () => { await postPolicy({ paused: !policy.paused }); refresh(); }}>
@@ -129,15 +136,25 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
         </div>
       </section>
 
-      <div className="cols">
-        <div className="col">
-          <RulesForm policy={policy} onSaved={refresh} />
-          <Safety policy={policy} onChange={refresh} />
-          <Merchants ledger={ledger} onChange={refresh} />
-        </div>
-        <div className="col">
+      <div className="deck">
+        <div className="deck-main">
           <AgentConsole onActivity={refresh} />
           <Statement receipts={ledger.receipts} onChange={refresh} />
+        </div>
+        <div className="deck-side">
+          <Phone ledger={ledger} onChange={refresh} />
+          <div className="stack">
+            <div className="sheet top tabs" role="tablist">
+              {([["rules", "Spending rules"], ["safety", "Scam protection"], ["merchants", "Merchants"]] as const).map(([k, label]) => (
+                <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "tab on" : "tab"} onClick={() => setTab(k)}>{label}</button>
+              ))}
+            </div>
+            <div className="sheet under">
+              {tab === "rules" && <RulesForm policy={policy} onSaved={refresh} />}
+              {tab === "safety" && <Safety policy={policy} onChange={refresh} />}
+              {tab === "merchants" && <Merchants ledger={ledger} onChange={refresh} />}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -183,8 +200,7 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
   );
 
   return (
-    <section className="panel glass">
-      <h3>Spending rules</h3>
+    <section className="pane">
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -235,8 +251,7 @@ function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) 
     </label>
   );
   return (
-    <section className="panel glass">
-      <h3>Scam protection</h3>
+    <section className="pane">
       {toggle(
         "purpose_check",
         "Purpose check",
@@ -255,11 +270,10 @@ function Merchants({ ledger, onChange }: { ledger: Ledger; onChange: () => void 
   const [busy, setBusy] = useState<string | null>(null);
   const { policy } = ledger;
   return (
-    <section className="panel glass">
-      <h3>Merchants</h3>
+    <section className="pane" data-lenis-prevent>
       <table className="merchants">
         <thead>
-          <tr><th>Merchant</th><th className="r">Price</th><th className="r">Spent today</th><th>Allowed</th><th /></tr>
+          <tr><th>Merchant</th><th className="r">Price</th><th className="r">Today</th><th>Allowed</th><th /></tr>
         </thead>
         <tbody>
           {MERCHANTS.map((m) => {
@@ -269,7 +283,7 @@ function Merchants({ ledger, onChange }: { ledger: Ledger; onChange: () => void 
               <tr key={m.id}>
                 <td>{m.name}</td>
                 <td className="r num">{usd(m.price)}</td>
-                <td className="r num">{usd(spent)} <span className="muted">/ {usd(policy.per_merchant_max_usdc)}</span></td>
+                <td className="r num">{usd(spent)}</td>
                 <td>
                   <input
                     type="checkbox"
@@ -297,7 +311,7 @@ function Merchants({ ledger, onChange }: { ledger: Ledger; onChange: () => void 
                       onChange();
                     }}
                   >
-                    {busy === m.id ? "Buying…" : "Buy once"}
+                    {busy === m.id ? "Buying…" : "Buy"}
                   </button>
                 </td>
               </tr>
@@ -357,20 +371,31 @@ function AgentConsole({ onActivity }: { onActivity: () => void }) {
   }
 
   return (
-    <section className="panel glass">
-      <h3>Give the agent a task</h3>
-      <textarea value={task} onChange={(e) => setTask(e.target.value)} rows={3} />
-      <div className="row">
-        <button className="btn" onClick={run} disabled={running || !task.trim()}>
-          {running ? "Agent is working…" : "Run agent"}
-        </button>
+    <div className="stack">
+      <section className="sheet top composer">
+        <label className="sheet-title" htmlFor="task">Give the agent a task</label>
+        <textarea id="task" value={task} onChange={(e) => setTask(e.target.value)} rows={3} />
+        <div className="composer-foot">
+          <div className="chips">
+            {TASKS.map((t) => (
+              <button key={t} type="button" className="chip" onClick={() => setTask(t)} disabled={running}>{t}</button>
+            ))}
+          </div>
+          <button className="btn run" onClick={run} disabled={running || !task.trim()}>
+            {running ? "Working…" : "Run agent"}
+          </button>
+        </div>
+      </section>
+      <div className="sheet under activity">
+        {events.length === 0 ? (
+          <p className="muted">The agent&apos;s steps show up here: what it checked, what it paid for, and what Leash stopped.</p>
+        ) : (
+          <ol className="log" ref={logRef} data-lenis-prevent>
+            {events.map((e, i) => <EventLine key={i} e={e} />)}
+          </ol>
+        )}
       </div>
-      {events.length > 0 && (
-        <ol className="log" ref={logRef} data-lenis-prevent>
-          {events.map((e, i) => <EventLine key={i} e={e} />)}
-        </ol>
-      )}
-    </section>
+    </div>
   );
 }
 
@@ -418,9 +443,20 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
     setBusy(null);
     onChange();
   }
+  const paid = receipts.filter((r) => r.status === "paid").reduce((a, r) => a + r.amount_usdc, 0);
+  const stopped = receipts.filter((r) => r.status === "blocked" || r.status === "denied").length;
+  const open = receipts.filter((r) => r.status === "pending_approval").length;
   return (
-    <section className="panel glass">
-      <h3>Statement</h3>
+    <div className="stack">
+      <header className="sheet top statement-head">
+        <span className="sheet-title">Statement</span>
+        <dl className="totals">
+          <div><dt>Paid</dt><dd className="num">{usd(paid)}</dd></div>
+          <div><dt>Stopped</dt><dd className="num">{stopped}</dd></div>
+          <div><dt>Waiting on you</dt><dd className="num">{open}</dd></div>
+        </dl>
+      </header>
+      <div className="sheet under">
       {receipts.length === 0 ? (
         <p className="muted">No purchases yet. Run the agent or buy from a merchant to see entries here.</p>
       ) : (
@@ -455,6 +491,123 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
           ))}
         </ul>
       )}
-    </section>
+      </div>
+    </div>
+  );
+}
+
+const RULE_TEXT: Record<string, string> = {
+  per_call_cap: "over your per-purchase limit",
+  per_day_cap: "over your daily limit",
+  per_merchant_cap: "over your per-merchant limit",
+  allowlist: "merchant not on your list",
+  paused: "spending is paused",
+  expired: "the card has expired",
+  payee_mismatch: "paid to the wrong wallet",
+  purpose_check: "the task doesn't need it",
+};
+
+type Msg =
+  | { k: string; from: "me"; text: string }
+  | { k: string; from: "bot"; text: string; link?: string; ask?: Receipt };
+
+// A mirror of the Telegram bot, built from the same ledger the bot reads.
+// The real @LeashSBot answers its owner only, so visitors see the feed here.
+function Phone({ ledger, onChange }: { ledger: Ledger; onChange: () => void }) {
+  const [extra, setExtra] = useState<Msg[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
+  const seq = useRef(0);
+  const name = (id: string) => MERCHANTS.find((m) => m.id === id)?.name ?? id;
+
+  const msgs: Msg[] = [];
+  let lastTask = "";
+  for (const r of ledger.receipts.slice(0, 14).reverse()) {
+    if (r.task && r.task !== lastTask) {
+      lastTask = r.task;
+      msgs.push({ k: `t${r.id}`, from: "me", text: r.task });
+    }
+    if (r.status === "paid") msgs.push({ k: r.id, from: "bot", text: `Paid ${name(r.merchant)}, ${usd(r.amount_usdc)}`, link: r.tx_signature });
+    else if (r.status === "pending_approval" || r.status === "approved" || r.status === "denied")
+      msgs.push({
+        k: r.id,
+        from: "bot",
+        text: [`Approval needed: ${name(r.merchant)}, ${usd(r.amount_usdc)}`, `The agent says: ${r.reason}`].join("\n") +
+          (r.status === "approved" ? "\n\nYou approved this." : r.status === "denied" ? "\n\nYou denied this." : ""),
+        ask: r.status === "pending_approval" ? r : undefined,
+      });
+    else if (r.status === "blocked") msgs.push({ k: r.id, from: "bot", text: `Blocked ${name(r.merchant)}: ${(r.rule_hit && RULE_TEXT[r.rule_hit]) ?? "blocked"}.` });
+  }
+  msgs.push(...extra);
+  const count = msgs.length;
+
+  useEffect(() => {
+    const f = feedRef.current;
+    if (f) f.scrollTop = f.scrollHeight;
+  }, [count]);
+
+  async function decide(id: string, decision: "approve" | "deny") {
+    setBusy(id);
+    await fetch("/api/approval", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, decision }) });
+    setBusy(null);
+    onChange();
+  }
+
+  async function command(cmd: "/today" | "/pause" | "/resume") {
+    const p = ledger.policy;
+    let reply = "";
+    if (cmd === "/today") {
+      reply = [
+        `Spent today: ${usd(ledger.spent_today)} of ${usd(p.per_day_max_usdc)}`,
+        `Per purchase: up to ${usd(p.per_call_max_usdc)}`,
+        `Spending: ${p.paused ? "paused" : "on"}`,
+      ].join("\n");
+    } else {
+      await postPolicy({ paused: cmd === "/pause" });
+      reply = cmd === "/pause" ? "Spending is paused. The agent can't pay for anything until you send /resume." : "Spending is back on.";
+      onChange();
+    }
+    const n = ++seq.current;
+    setExtra((x): Msg[] => [...x, { k: `c${n}`, from: "me" as const, text: cmd }, { k: `r${n}`, from: "bot" as const, text: reply }].slice(-6));
+  }
+
+  return (
+    <aside className="phone" aria-label="Telegram bot preview">
+      <div className="phone-head">
+        <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+          <circle cx="16" cy="16" r="16" fill="#2f93ff" />
+          <path d="M11 9v14h10" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <div>
+          <strong>LeashSBot</strong>
+          <span>bot</span>
+        </div>
+        <a className="phone-open" href="https://t.me/LeashSBot" target="_blank" rel="noreferrer">Open in Telegram</a>
+      </div>
+      <div className="phone-feed" ref={feedRef} data-lenis-prevent>
+        {count === 0 && <p className="phone-empty">Run a task and the bot&apos;s messages appear here, the same ones it sends to the owner&apos;s phone.</p>}
+        {msgs.map((m) => (
+          <div key={m.k} className={`bubble ${m.from}`}>
+            <p>{m.text}</p>
+            {m.from === "bot" && m.link && (
+              <a className="bubble-btn" href={txUrl(m.link)} target="_blank" rel="noreferrer">View on Solana Explorer</a>
+            )}
+            {m.from === "bot" && m.ask && (
+              <div className="bubble-row">
+                <button className="bubble-btn" disabled={busy !== null} onClick={() => decide(m.ask!.id, "approve")}>
+                  {busy === m.ask.id ? "Paying…" : `Approve ${usd(m.ask.amount_usdc)}`}
+                </button>
+                <button className="bubble-btn" disabled={busy !== null} onClick={() => decide(m.ask!.id, "deny")}>Deny</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="phone-cmds">
+        {(["/today", "/pause", "/resume"] as const).map((c) => (
+          <button key={c} className="cmd" onClick={() => command(c)}>{c}</button>
+        ))}
+      </div>
+    </aside>
   );
 }
