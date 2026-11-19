@@ -13,7 +13,7 @@ export type Policy = {
   paused: boolean;
 };
 
-export type ReceiptStatus = "paid" | "blocked" | "pending_approval" | "failed";
+export type ReceiptStatus = "paid" | "blocked" | "pending_approval" | "approved" | "denied" | "failed";
 
 export type Receipt = {
   id: string;
@@ -77,6 +77,15 @@ export async function addReceipt(r: Omit<Receipt, "id" | "created_at">): Promise
   db.receipts.push(receipt);
   await save(db);
   return receipt;
+}
+
+export async function updateReceipt(id: string, patch: Partial<Receipt>): Promise<Receipt | null> {
+  const db = await load();
+  const r = db.receipts.find((x) => x.id === id);
+  if (!r) return null;
+  Object.assign(r, patch);
+  await save(db);
+  return r;
 }
 
 export async function resetAll() {

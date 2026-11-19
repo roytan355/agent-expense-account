@@ -29,11 +29,15 @@ export type PayResult =
   | { ok: true; receipt: Receipt; data: unknown }
   | { ok: false; receipt: Receipt; error: string };
 
-export function payAndFetch(merchantId: string, reason: string): Promise<PayResult> {
-  return serial(() => payAndFetchInner(merchantId, reason));
+// An owner approval lifts the spending caps for one payment. Pause, expiry,
+// the allowlist and the payee check still apply.
+const CAP_RULES = new Set(["per_call_cap", "per_day_cap", "per_merchant_cap"]);
+
+export function payAndFetch(merchantId: string, reason: string, opts: { approved?: boolean } = {}): Promise<PayResult> {
+  return serial(() => payAndFetchInner(merchantId, reason, opts.approved ?? false));
 }
 
-async function payAndFetchInner(merchantId: string, reason: string): Promise<PayResult> {
+async function payAndFetchInner(merchantId: string, reason: string, approved: boolean): Promise<PayResult> {
   const merchant = merchantById(merchantId);
   const url = merchant ? `${baseUrl()}${merchant.path}` : merchantId;
 
@@ -65,7 +69,7 @@ async function payAndFetchInner(merchantId: string, reason: string): Promise<Pay
       payTo: req.payTo,
       expectedPayTo: env("MERCHANT_PAY_TO"),
     });
-    if (!decision.allow) {
+    if (!decision.allow && !(approved && CAP_RULES.has(decision.rule))) {
       blocked = { rule: decision.rule, message: decision.message };
       return { abort: true, reason: decision.message };
     }

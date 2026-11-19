@@ -176,3 +176,9 @@ textarea { resize: vertical; line-height: 1.45; }
 @media (prefers-reduced-motion: reduce) {
   .bar-fill, .btn, .merchants input[type="checkbox"], .merchants input[type="checkbox"]::after { transition: none; }
 }
+
+.tag.approved { color: var(--paid); background: rgba(52, 199, 89, 0.15); }
+.tag.denied { color: var(--ink-soft); background: var(--fill); }
+.entry.denied .entry-amount { text-decoration: line-through; color: var(--ink-soft); }
+.entry-note { margin: 2px 0 0; font-size: 13px; color: var(--ink-soft); }
+.entry .row { margin-top: 10px; }

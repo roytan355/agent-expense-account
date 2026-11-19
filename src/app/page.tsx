@@ -16,7 +16,7 @@ type Receipt = {
   merchant: string;
   amount_usdc: number;
   reason: string;
-  status: "paid" | "blocked" | "pending_approval" | "failed";
+  status: "paid" | "blocked" | "pending_approval" | "approved" | "denied" | "failed";
   rule_hit?: string;
   detail?: string;
   tx_signature?: string;
@@ -46,6 +46,8 @@ const STATUS_LABEL: Record<Receipt["status"], string> = {
   paid: "Paid",
   blocked: "Blocked",
   pending_approval: "Needs approval",
+  approved: "Approved",
+  denied: "Denied",
   failed: "Failed",
 };
 
@@ -115,7 +117,7 @@ export default function Dashboard() {
         </div>
         <div className="col">
           <AgentConsole onActivity={refresh} />
-          <Statement receipts={ledger.receipts} />
+          <Statement receipts={ledger.receipts} onChange={refresh} />
         </div>
       </div>
     </main>
@@ -352,7 +354,18 @@ function EventLine({ e }: { e: AgentEvent }) {
   }
 }
 
-function Statement({ receipts }: { receipts: Receipt[] }) {
+function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  async function decide(id: string, decision: "approve" | "deny") {
+    setBusy(id);
+    await fetch("/api/approval", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, decision }),
+    });
+    setBusy(null);
+    onChange();
+  }
   return (
     <section className="panel">
       <h2>Statement</h2>
@@ -374,7 +387,15 @@ function Statement({ receipts }: { receipts: Receipt[] }) {
                 )}
               </div>
               <p className="entry-reason">{r.reason}</p>
-              {r.status !== "paid" && r.detail && <p className="entry-detail">{r.detail}</p>}
+              {r.status !== "paid" && r.detail && <p className={r.status === "approved" ? "entry-note" : "entry-detail"}>{r.detail}</p>}
+              {r.status === "pending_approval" && (
+                <div className="row">
+                  <button className="btn small" disabled={busy !== null} onClick={() => decide(r.id, "approve")}>
+                    {busy === r.id ? "Paying…" : `Approve ${usd(r.amount_usdc)}`}
+                  </button>
+                  <button className="btn small" disabled={busy !== null} onClick={() => decide(r.id, "deny")}>Deny</button>
+                </div>
+              )}
             </li>
           ))}
         </ul>

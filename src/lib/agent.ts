@@ -114,6 +114,7 @@ async function runScripted(task: string, emit: (e: AgentEvent) => void) {
   emit({ type: "tool_result", name: "list_merchants", ok: true, result: list.result });
 
   const bought: string[] = [];
+  const asked: string[] = [];
   for (const id of wanted) {
     const m = MERCHANTS.find((x) => x.id === id)!;
     const input = { merchant: id, reason: `The task asks for ${m.name.toLowerCase()}.` };
@@ -127,13 +128,17 @@ async function runScripted(task: string, emit: (e: AgentEvent) => void) {
       emit({ type: "tool_call", name: "request_approval", input: ask });
       const a = await runTool("request_approval", ask);
       emit({ type: "tool_result", name: "request_approval", ok: a.ok, result: a.result });
+      asked.push(`${m.name} ($${m.priceUsd.toFixed(2)})`);
     }
   }
   emit({
     type: "done",
-    text: bought.length
-      ? `Bought ${bought.join(", ")}. Anything blocked was sent to you for approval.`
-      : "Nothing in the task matched a merchant, so nothing was bought.",
+    text: !wanted.length
+      ? "Nothing in the task matched a merchant, so nothing was bought."
+      : [
+          bought.length ? `Bought ${bought.join(", ")}.` : "Nothing was paid.",
+          asked.length ? `Sent ${asked.join(", ")} to you for approval.` : "",
+        ].join(" ").trim(),
   });
 }
 
