@@ -1,4 +1,4 @@
-# Agent Expense Account
+# Leash
 
 A spending account for AI agents on Solana. The agent holds a USDC wallet and pays for data through x402, the HTTP 402 payment standard. The owner sets the rules, and every payment is checked against them before it is signed. The agent never touches the wallet key, and each payment attempt, allowed or blocked, goes on a statement the owner can read.
 

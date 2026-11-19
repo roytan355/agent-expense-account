@@ -85,7 +85,7 @@ export default function Dashboard() {
   return (
     <main className="shell">
       <header className="top">
-        <h1>Agent expense account</h1>
+        <h1>Leash</h1>
         <div className="wallets">
           <WalletLine label="Agent wallet" w={wallets?.agent} />
           <WalletLine label="Merchant wallet" w={wallets?.merchant} />

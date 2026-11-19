@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Agent expense account",
+  title: "Leash: spending limits for AI agents",
   description: "A USDC expense account for an AI agent, with spending rules enforced before any payment is signed.",
 };
 
