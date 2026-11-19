@@ -97,7 +97,48 @@ async function systemPrompt() {
   ].join("\n");
 }
 
+// No-key mode: a fixed planner picks merchants from keywords in the task and
+// goes through the same tools, so payments, policy checks and receipts are
+// all real. Only the reasoning is scripted.
+async function runScripted(task: string, emit: (e: AgentEvent) => void) {
+  const t = task.toLowerCase();
+  const wanted = [
+    { id: "fx", hit: /usd|cad|fx|exchange|currency/ },
+    { id: "sol-price", hit: /\bsol\b|solana/ },
+    { id: "premium-report", hit: /report|premium|analysis/ },
+  ].filter((w) => w.hit.test(t)).map((w) => w.id);
+
+  emit({ type: "text", text: "Running without an API key: scripted planner, real payments." });
+  emit({ type: "tool_call", name: "list_merchants", input: {} });
+  const list = await runTool("list_merchants", {});
+  emit({ type: "tool_result", name: "list_merchants", ok: true, result: list.result });
+
+  const bought: string[] = [];
+  for (const id of wanted) {
+    const m = MERCHANTS.find((x) => x.id === id)!;
+    const input = { merchant: id, reason: `The task asks for ${m.name.toLowerCase()}.` };
+    emit({ type: "tool_call", name: "pay_and_fetch", input });
+    const r = await runTool("pay_and_fetch", input);
+    emit({ type: "tool_result", name: "pay_and_fetch", ok: r.ok, result: r.result });
+    if (r.ok) {
+      bought.push(`${m.name} ($${m.priceUsd.toFixed(2)})`);
+    } else {
+      const ask = { merchant: id, amount_usd: m.priceUsd, reason: `Blocked by policy; needed for: ${task.slice(0, 80)}` };
+      emit({ type: "tool_call", name: "request_approval", input: ask });
+      const a = await runTool("request_approval", ask);
+      emit({ type: "tool_result", name: "request_approval", ok: a.ok, result: a.result });
+    }
+  }
+  emit({
+    type: "done",
+    text: bought.length
+      ? `Bought ${bought.join(", ")}. Anything blocked was sent to you for approval.`
+      : "Nothing in the task matched a merchant, so nothing was bought.",
+  });
+}
+
 export async function runAgent(task: string, emit: (e: AgentEvent) => void) {
+  if (!process.env.ANTHROPIC_API_KEY) return runScripted(task, emit);
   const client = new Anthropic();
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: task }];
   const system = await systemPrompt();
