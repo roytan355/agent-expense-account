@@ -12,6 +12,8 @@ export type Policy = {
   allowlist: string[];
   expires_at: string;
   paused: boolean;
+  purpose_check: boolean;
+  attack_demo: boolean;
 };
 export type Receipt = {
   id: string;
@@ -23,6 +25,7 @@ export type Receipt = {
   rule_hit?: string;
   detail?: string;
   tx_signature?: string;
+  task?: string;
 };
 export type Ledger = { policy: Policy; spent_today: number; spent_by_merchant: Record<string, number>; receipts: Receipt[] };
 export type Wallet = { address: string; sol: number; usdc: number };
@@ -123,6 +126,7 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
       <div className="cols">
         <div className="col">
           <RulesForm policy={policy} onSaved={refresh} />
+          <Safety policy={policy} onChange={refresh} />
           <Merchants ledger={ledger} onChange={refresh} />
         </div>
         <div className="col">
@@ -206,6 +210,37 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
           </button>
         </div>
       </form>
+    </section>
+  );
+}
+
+function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) {
+  const toggle = (key: "purpose_check" | "attack_demo", label: string, help: string) => (
+    <label className="toggle">
+      <span className="toggle-text">
+        <strong>{label}</strong>
+        <span className="muted small">{help}</span>
+      </span>
+      <input
+        type="checkbox"
+        checked={policy[key]}
+        onChange={async (e) => { await postPolicy({ [key]: e.target.checked }); onChange(); }}
+      />
+    </label>
+  );
+  return (
+    <section className="panel glass">
+      <h3>Scam protection</h3>
+      {toggle(
+        "purpose_check",
+        "Purpose check",
+        "A second AI reads only your task and blocks any payment that doesn't serve it, even when it fits under your limits.",
+      )}
+      {toggle(
+        "attack_demo",
+        "Poison the FX merchant",
+        "Demo: the FX reply hides an instruction telling the agent to buy the SOL price too. Ask only about USD/CAD to see it.",
+      )}
     </section>
   );
 }
@@ -391,13 +426,16 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
                 <span className="entry-amount num">{usd(r.amount_usdc)}</span>
               </div>
               <div className="entry-sub">
-                <span className={`tag ${r.status}`}>{STATUS_LABEL[r.status]}</span>
+                <span className={`tag ${r.status}`}>
+                  {r.rule_hit === "purpose_check" ? "Blocked, purpose check" : STATUS_LABEL[r.status]}
+                </span>
                 <time className="muted num">{new Date(r.created_at).toLocaleTimeString()}</time>
                 {r.tx_signature && (
                   <a href={txUrl(r.tx_signature)} target="_blank" rel="noreferrer">{short(r.tx_signature)}</a>
                 )}
               </div>
               <p className="entry-reason">{r.reason}</p>
+              {r.rule_hit === "purpose_check" && r.task && <p className="entry-note">Your task: {r.task}</p>}
               {r.status !== "paid" && r.detail && <p className={r.status === "approved" ? "entry-note" : "entry-detail"}>{r.detail}</p>}
               {r.status === "pending_approval" && (
                 <div className="row">

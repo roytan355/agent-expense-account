@@ -244,6 +244,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
   border: 0; border-radius: 12px; padding: 10px 12px; width: 100%;
 }
 .field input { font-size: 16px; font-variant-numeric: tabular-nums; }
+.toggle { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 0; cursor: pointer; }
+.toggle + .toggle { border-top: 1px solid rgba(21, 22, 43, 0.08); }
+.toggle-text { display: flex; flex-direction: column; gap: 4px; }
+.toggle-text strong { font-size: 15px; }
+.toggle-text .small { line-height: 1.45; }
 textarea { resize: vertical; line-height: 1.45; }
 
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
@@ -256,18 +261,19 @@ textarea { resize: vertical; line-height: 1.45; }
 .merchants tr:last-child td { border-bottom: 0; }
 .merchants td.num { white-space: nowrap; }
 /* iOS switch for the allow column */
-.merchants input[type="checkbox"] {
+.merchants input[type="checkbox"], .toggle input[type="checkbox"] {
   appearance: none; -webkit-appearance: none; margin: 0; cursor: pointer;
   position: relative; width: 44px; height: 26px; border-radius: 999px;
   background: rgba(120, 120, 128, 0.22); transition: background 200ms ease; vertical-align: middle;
 }
-.merchants input[type="checkbox"]::after {
+.merchants input[type="checkbox"]::after, .toggle input[type="checkbox"]::after {
   content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%;
   background: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.1);
   transition: transform 220ms var(--ease-ios);
 }
-.merchants input[type="checkbox"]:checked { background: #34c759; }
-.merchants input[type="checkbox"]:checked::after { transform: translateX(18px); }
+.merchants input[type="checkbox"]:checked, .toggle input[type="checkbox"]:checked { background: #34c759; }
+.toggle input[type="checkbox"] { flex: none; }
+.merchants input[type="checkbox"]:checked::after, .toggle input[type="checkbox"]:checked::after { transform: translateX(18px); }
 
 .log { list-style: none; margin: 16px 0 0; padding: 0; max-height: 360px; overflow-y: auto; overscroll-behavior: contain; }
 .ev { padding: 9px 12px; margin-top: 8px; font-size: 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.5); }
@@ -316,7 +322,7 @@ textarea { resize: vertical; line-height: 1.45; }
 
 @media (prefers-reduced-motion: reduce) {
   .bgfield i { animation: none; }
-  .bar-fill, .btn, .step, .step-n, .detail-pane, .merchants input[type="checkbox"], .merchants input[type="checkbox"]::after { transition: none; }
+  .bar-fill, .btn, .step, .step-n, .detail-pane, .merchants input[type="checkbox"], .merchants input[type="checkbox"]::after, .toggle input[type="checkbox"]::after { transition: none; }
   .problem, .flow { height: auto; }
   .problem .sticky, .flow .sticky { position: static; height: auto; padding-top: 100px; padding-bottom: 100px; }
   .beats { height: auto; }

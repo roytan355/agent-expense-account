@@ -11,6 +11,8 @@ export type Policy = {
   allowlist: string[]; // merchant ids
   expires_at: string; // ISO timestamp
   paused: boolean;
+  purpose_check: boolean; // second AI check: does this payment serve the owner's task?
+  attack_demo: boolean; // demo only: the FX merchant's reply carries a prompt injection
 };
 
 export type ReceiptStatus = "paid" | "blocked" | "pending_approval" | "approved" | "denied" | "failed";
@@ -26,6 +28,7 @@ export type Receipt = {
   rule_hit?: string;
   detail?: string;
   tx_signature?: string;
+  task?: string;
 };
 
 type Db = { policy: Policy; receipts: Receipt[] };
@@ -40,12 +43,16 @@ export function defaultPolicy(): Policy {
     allowlist: MERCHANTS.map((m) => m.id),
     expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
     paused: false,
+    purpose_check: true,
+    attack_demo: false,
   };
 }
 
 async function load(): Promise<Db> {
   try {
-    return JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
+    const db: Db = JSON.parse(await fs.readFile(DATA_FILE, "utf8"));
+    db.policy = { ...defaultPolicy(), ...db.policy }; // fills fields added after the file was written
+    return db;
   } catch {
     return { policy: defaultPolicy(), receipts: [] };
   }

@@ -8,6 +8,7 @@ import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { ExactSvmScheme } from "@x402/svm/exact/client";
 import { SOLANA_DEVNET, USDC_DECIMALS, baseUrl, env } from "./config";
 import { merchantById } from "./merchants";
+import { purposeCheck } from "./guard";
 import { evaluate } from "./policy";
 import { addReceipt, getPolicy, listReceipts, type Receipt } from "./store";
 
@@ -33,17 +34,21 @@ export type PayResult =
 // the allowlist and the payee check still apply.
 const CAP_RULES = new Set(["per_call_cap", "per_day_cap", "per_merchant_cap"]);
 
-export function payAndFetch(merchantId: string, reason: string, opts: { approved?: boolean } = {}): Promise<PayResult> {
-  return serial(() => payAndFetchInner(merchantId, reason, opts.approved ?? false));
+export function payAndFetch(
+  merchantId: string,
+  reason: string,
+  opts: { approved?: boolean; task?: string } = {},
+): Promise<PayResult> {
+  return serial(() => payAndFetchInner(merchantId, reason, opts.approved ?? false, opts.task));
 }
 
-async function payAndFetchInner(merchantId: string, reason: string, approved: boolean): Promise<PayResult> {
+async function payAndFetchInner(merchantId: string, reason: string, approved: boolean, task?: string): Promise<PayResult> {
   const merchant = merchantById(merchantId);
   const url = merchant ? `${baseUrl()}${merchant.path}` : merchantId;
 
   if (!merchant) {
     const receipt = await addReceipt({
-      merchant: merchantId, url, amount_usdc: 0, reason, status: "blocked",
+      merchant: merchantId, url, amount_usdc: 0, reason, task, status: "blocked",
       rule_hit: "allowlist", detail: `Unknown merchant "${merchantId}".`,
     });
     return { ok: false, receipt, error: receipt.detail! };
@@ -63,7 +68,8 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
   client.onBeforePaymentCreation(async (ctx) => {
     const req = ctx.selectedRequirements;
     amountUsdc = Number(req.amount) / 10 ** USDC_DECIMALS;
-    const decision = evaluate(await getPolicy(), await listReceipts(), {
+    const policy = await getPolicy();
+    const decision = evaluate(policy, await listReceipts(), {
       merchant: merchant.id,
       amountUsdc,
       payTo: req.payTo,
@@ -72,6 +78,14 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
     if (!decision.allow && !(approved && CAP_RULES.has(decision.rule))) {
       blocked = { rule: decision.rule, message: decision.message };
       return { abort: true, reason: decision.message };
+    }
+    // The owner already looked at an approved payment, so it skips this check.
+    if (policy.purpose_check && task && !approved) {
+      const v = await purposeCheck({ task, merchant, amountUsdc, reason });
+      if (!v.allow) {
+        blocked = { rule: "purpose_check", message: v.reason };
+        return { abort: true, reason: v.reason };
+      }
     }
   });
 
@@ -88,7 +102,7 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
         try { why = decodePaymentRequiredHeader(required).error ?? why; } catch {}
       }
       const receipt = await addReceipt({
-        merchant: merchant.id, url, amount_usdc: amountUsdc, reason, status: "failed",
+        merchant: merchant.id, url, amount_usdc: amountUsdc, reason, task, status: "failed",
         detail: `HTTP ${res.status}: ${why}`,
       });
       return { ok: false, receipt, error: receipt.detail! };
@@ -97,7 +111,7 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
     const settle = header ? decodePaymentResponseHeader(header) : null;
     const data = await res.json();
     const receipt = await addReceipt({
-      merchant: merchant.id, url, amount_usdc: amountUsdc, reason, status: "paid",
+      merchant: merchant.id, url, amount_usdc: amountUsdc, reason, task, status: "paid",
       tx_signature: settle?.transaction,
     });
     return { ok: true, receipt, data };
@@ -105,14 +119,14 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
     const b = blocked as { rule: string; message: string } | null;
     if (b) {
       const receipt = await addReceipt({
-        merchant: merchant.id, url, amount_usdc: amountUsdc, reason, status: "blocked",
+        merchant: merchant.id, url, amount_usdc: amountUsdc, reason, task, status: "blocked",
         rule_hit: b.rule, detail: b.message,
       });
       return { ok: false, receipt, error: b.message };
     }
     const message = err instanceof Error ? err.message : String(err);
     const receipt = await addReceipt({
-      merchant: merchant.id, url, amount_usdc: amountUsdc, reason, status: "failed", detail: message,
+      merchant: merchant.id, url, amount_usdc: amountUsdc, reason, task, status: "failed", detail: message,
     });
     return { ok: false, receipt, error: message };
   }

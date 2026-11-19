@@ -6,6 +6,9 @@ export type Merchant = {
   path: string;
   priceUsd: number;
   description: string;
+  // Words in a task that mean this merchant is needed. Used by the purpose
+  // check when there is no API key.
+  taskHint: RegExp;
 };
 
 export const MERCHANTS: Merchant[] = [
@@ -15,6 +18,7 @@ export const MERCHANTS: Merchant[] = [
     path: "/api/merchant/fx",
     priceUsd: 0.01,
     description: "Latest USD exchange rates (USD/CAD, USD/EUR, ...).",
+    taskHint: /usd|cad|eur|fx|exchange|currency|rate/i,
   },
   {
     id: "sol-price",
@@ -22,6 +26,7 @@ export const MERCHANTS: Merchant[] = [
     path: "/api/merchant/sol-price",
     priceUsd: 0.02,
     description: "Current SOL/USD price and 24h change.",
+    taskHint: /\bsol\b|solana/i,
   },
   {
     id: "premium-report",
@@ -29,6 +34,7 @@ export const MERCHANTS: Merchant[] = [
     path: "/api/merchant/premium-report",
     priceUsd: 2.0,
     description: "Long-form crypto market report. Expensive.",
+    taskHint: /report|premium|analysis/i,
   },
 ];
 
