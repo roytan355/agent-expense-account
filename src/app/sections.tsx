@@ -105,13 +105,22 @@ export function Problem() {
   );
 }
 
+function Facts({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl className="facts">
+      {rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+    </dl>
+  );
+}
+
 const STEPS: { title: string; detail: React.ReactNode }[] = [
   {
     title: "The agent asks for data.",
     detail: (
       <>
-        <code className="req">GET /api/merchant/fx</code>
+        <div className="big-code"><span>GET</span> /api/merchant/fx</div>
         <p>The agent needs today&apos;s USD/CAD rate, so it calls the FX merchant like any other API.</p>
+        <Facts rows={[["Caller", "Research agent"], ["Merchant", "FX Rates"]]} />
       </>
     ),
   },
@@ -119,8 +128,9 @@ const STEPS: { title: string; detail: React.ReactNode }[] = [
     title: "The merchant answers 402.",
     detail: (
       <>
-        <code className="req">402 Payment Required</code>
-        <p>Pay $0.01 USDC to DYPd…m2CA on Solana devnet. This is the x402 standard: the price and payee come back with the response.</p>
+        <div className="big-fig">402<small>Payment Required</small></div>
+        <p>Under the x402 standard, the price and the payee come back with the response.</p>
+        <Facts rows={[["Price", "$0.01 USDC"], ["Pay to", "DYPd…m2CA"], ["Network", "Solana devnet"]]} />
       </>
     ),
   },
@@ -136,15 +146,24 @@ const STEPS: { title: string; detail: React.ReactNode }[] = [
   },
   {
     title: "Solana settles the payment.",
-    detail: <p>Leash signs with the agent&apos;s wallet. The facilitator verifies the payment and settles it on devnet in about two seconds. The model never sees the key.</p>,
+    detail: (
+      <>
+        <div className="big-fig">~2s<small>to settle on devnet</small></div>
+        <p>Leash signs with the agent&apos;s wallet and the facilitator settles it on chain.</p>
+        <Facts rows={[["Signed by", "Agent wallet"], ["Settled by", "Facilitator"], ["Key seen by the model", "Never"]]} />
+      </>
+    ),
   },
   {
     title: "The statement records it.",
     detail: (
-      <div className="mini-entry">
-        <div><strong>FX Rates</strong><span className="num">$0.01</span></div>
-        <div><span className="tag paid">Paid</span><span className="muted">with an explorer link</span></div>
-      </div>
+      <>
+        <div className="mini-entry">
+          <div><strong>FX Rates</strong><span className="num">$0.01</span></div>
+          <div><span className="tag paid">Paid</span><span className="muted">12:22:41 PM</span><span className="ev-link">41o9…14gR</span></div>
+        </div>
+        <p>Every purchase lands on the statement with its explorer link, and so does every refusal, with the rule that stopped it.</p>
+      </>
     ),
   },
 ];
