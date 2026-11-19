@@ -41,7 +41,10 @@ type AgentEvent =
 export const MERCHANTS = [
   { id: "fx", name: "FX Rates", price: 0.01 },
   { id: "sol-price", name: "SOL Price", price: 0.02 },
-  { id: "premium-report", name: "Premium Market Report", price: 2.0 },
+  { id: "premium-report", name: "Premium Market Report", price: 20.0 },
+  { id: "usb-c-cable", name: "USB-C Cable, 2 m", price: 8.99 },
+  { id: "coffee-beans", name: "Coffee Beans, 1 kg", price: 14.5 },
+  { id: "gift-card", name: "Gift Card, $25", price: 25.0 },
 ];
 
 export const usd = (n: number) => `$${n.toFixed(2)}`;

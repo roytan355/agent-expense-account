@@ -138,7 +138,7 @@ const STEPS: { title: string; detail: React.ReactNode }[] = [
     title: "Leash checks the rules before anything is signed.",
     detail: (
       <ul className="checks">
-        {["Under $0.50 per purchase", "Under $1.00 today", "Merchant is allowed", "Paid to the wallet on file", "Spending is not paused", "Serves the task you gave it"].map((c) => (
+        {["Under $15 per purchase", "Under $40 today", "Merchant is allowed", "Paid to the wallet on file", "Spending is not paused", "Serves the task you gave it"].map((c) => (
           <li key={c}><span>{c}</span><span className="pass">Pass</span></li>
         ))}
       </ul>

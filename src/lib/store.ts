@@ -37,9 +37,9 @@ const DATA_FILE = path.join(process.cwd(), "data", "db.json");
 
 export function defaultPolicy(): Policy {
   return {
-    per_call_max_usdc: 0.5,
-    per_day_max_usdc: 1.0,
-    per_merchant_max_usdc: 0.5,
+    per_call_max_usdc: 15,
+    per_day_max_usdc: 40,
+    per_merchant_max_usdc: 20,
     allowlist: MERCHANTS.map((m) => m.id),
     expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
     paused: false,

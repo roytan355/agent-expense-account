@@ -1,0 +1,5 @@
+import { withX402 } from "@x402/next";
+import { orderHandler } from "@/lib/shop";
+import { paidRoute, resourceServer } from "@/lib/x402-server";
+
+export const GET = withX402(orderHandler("gift-card"), paidRoute("gift-card"), resourceServer);
