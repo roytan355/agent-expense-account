@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Hide the Next.js dev-tools badge so it doesn't show in the demo recording.
+  devIndicators: false,
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
