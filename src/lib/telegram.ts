@@ -171,6 +171,9 @@ async function handleCallback(q: NonNullable<Update["callback_query"]>) {
   await call("editMessageReplyMarkup", { chat_id: chatId, message_id: q.message!.message_id, reply_markup: { inline_keyboard: [] } });
   const result = await decide(id, kind === "ap" ? "approve" : "deny");
   if ("denied" in result) return void (await send(chatId, "Denied. Nothing was paid."));
+  if ("notFound" in result && result.notFound) {
+    return void (await send(chatId, "This request was already answered, maybe on the website. Nothing was paid."));
+  }
   if (!result.ok) return void (await send(chatId, `Couldn't pay: ${result.error}`));
   const tx = "receipt" in result ? result.receipt.tx_signature : undefined;
   await send(

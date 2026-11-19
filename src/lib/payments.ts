@@ -100,6 +100,9 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
       let why = body.slice(0, 300);
       if (required) {
         try { why = decodePaymentRequiredHeader(required).error ?? why; } catch {}
+        // The facilitator simulates the transfer first; it fails when the
+        // agent's wallet can't cover the price.
+        if (/simulation_failed|insufficient/i.test(why)) why = "The agent's wallet doesn't have enough USDC for this. Refill it and try again.";
       }
       const receipt = await addReceipt({
         merchant: merchant.id, url, amount_usdc: amountUsdc, reason, task, status: "failed",

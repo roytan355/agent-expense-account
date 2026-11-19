@@ -69,6 +69,33 @@ export const MERCHANTS: Merchant[] = [
     description: "Leash Shop: $25 digital gift card, delivered by email right away.",
     taskHint: /gift/i,
   },
+  {
+    id: "milk",
+    name: "Milk, 2 L",
+    path: "/api/shop/milk",
+    priceUsd: 4.99,
+    kind: "product",
+    description: "Leash Shop: 2% milk, 2 L carton. Same-day grocery delivery.",
+    taskHint: /milk/i,
+  },
+  {
+    id: "eggs",
+    name: "Eggs, dozen",
+    path: "/api/shop/eggs",
+    priceUsd: 5.49,
+    kind: "product",
+    description: "Leash Shop: one dozen large eggs. Same-day grocery delivery.",
+    taskHint: /\beggs?\b/i,
+  },
+  {
+    id: "bread",
+    name: "Bread, 1 loaf",
+    path: "/api/shop/bread",
+    priceUsd: 3.99,
+    kind: "product",
+    description: "Leash Shop: whole wheat sandwich loaf. Same-day grocery delivery.",
+    taskHint: /bread|loaf/i,
+  },
 ];
 
 export const merchantById = (id: string) => MERCHANTS.find((m) => m.id === id);

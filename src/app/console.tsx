@@ -45,6 +45,9 @@ export const MERCHANTS = [
   { id: "usb-c-cable", name: "USB-C Cable, 2 m", price: 8.99 },
   { id: "coffee-beans", name: "Coffee Beans, 1 kg", price: 14.5 },
   { id: "gift-card", name: "Gift Card, $25", price: 25.0 },
+  { id: "milk", name: "Milk, 2 L", price: 4.99 },
+  { id: "eggs", name: "Eggs, dozen", price: 5.49 },
+  { id: "bread", name: "Bread, 1 loaf", price: 3.99 },
 ];
 
 export const usd = (n: number) => `$${n.toFixed(2)}`;
