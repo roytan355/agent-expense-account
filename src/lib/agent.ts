@@ -77,6 +77,8 @@ async function runTool(name: string, input: Record<string, unknown>, task: strin
         task,
         status: "pending_approval",
       });
+      // Ping the owner on Telegram. Imported lazily because telegram.ts imports this file.
+      void import("./telegram").then((t) => t.notifyApproval(receipt)).catch((e) => console.error("[telegram] notify", e));
       return {
         ok: true,
         result: { status: "pending_approval", approval_id: receipt.id, message: "Sent to the owner. Do not wait for it; finish with what you have." },
