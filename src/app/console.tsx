@@ -45,7 +45,6 @@ type AgentEvent =
 export const MERCHANTS = [
   { id: "fx", name: "FX Rates", price: 0.01 },
   { id: "sol-price", name: "SOL Price", price: 0.02 },
-  { id: "premium-report", name: "Premium Market Report", price: 20.0 },
   { id: "usb-c-cable", name: "USB-C Cable, 2 m", price: 8.99 },
   { id: "coffee-beans", name: "Coffee Beans, 1 kg", price: 14.5 },
   { id: "gift-card", name: "Gift Card, $25", price: 25.0 },
@@ -102,7 +101,7 @@ const TASKS = [
   "Buy me two milks",
   "What's USD/CAD right now?",
   "Buy a dozen eggs and a loaf of bread",
-  "Get me the premium market report",
+  "Buy a $25 gift card",
 ];
 
 export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; wallets: Wallets | null; refresh: () => void }) {
@@ -222,9 +221,9 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
         }}
       >
         <div className="fields">
-          {field("per_call_max_usdc", "Most per purchase ($)")}
-          {field("per_day_max_usdc", "Most per day ($)")}
-          {field("per_merchant_max_usdc", "Most per merchant per day ($)")}
+          {field("per_call_max_usdc", "Ask me above, per purchase ($)")}
+          {field("per_day_max_usdc", "Ask me above, per day ($)")}
+          {field("per_merchant_max_usdc", "Ask me above, per merchant per day ($)")}
           {field("expires_at", "Card expires", "date")}
           {field("auto_approve_max_usdc", "Auto-approve up to ($, 0 = off)")}
           {field("auto_approve_daily_usdc", "Auto-approved per day ($)")}
@@ -282,7 +281,7 @@ function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) 
 }
 
 const SAMPLE_TASK =
-  "I'm moving $500 USD to Canada and buying some SOL. What's USD/CAD right now, what's SOL trading at, and is the premium market report worth getting?";
+  "I'm moving $500 USD to Canada and buying some SOL. What's USD/CAD right now, and what's SOL trading at?";
 
 function AgentConsole({ onActivity }: { onActivity: () => void }) {
   const [task, setTask] = useState(SAMPLE_TASK);
@@ -365,8 +364,8 @@ function EventLine({ e }: { e: AgentEvent }) {
       if (e.name === "list_merchants") return <li className="ev call">Checked the merchant list</li>;
       return (
         <li className="ev call">
-          {e.name === "pay_and_fetch" ? "Wants to buy" : "Asked you to approve"} <strong>{String(e.input.merchant)}</strong>
-          {e.input.reason ? <span className="muted"> because {String(e.input.reason)}</span> : null}
+          {e.name === "pay_and_fetch" ? "Wants to pay" : "Asked you to approve"} <strong>{String(e.input.merchant)}</strong>
+          {e.input.reason ? <span className="muted"> because {String(e.input.reason).replace(/^[A-Z](?=[a-z ])/, (c) => c.toLowerCase())}</span> : null}
         </li>
       );
     case "tool_result": {

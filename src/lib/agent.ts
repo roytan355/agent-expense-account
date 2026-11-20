@@ -124,6 +124,29 @@ function summarize(names: string[]) {
     .join("; ");
 }
 
+// Turn the data the agent bought into an answer, using a dollar amount from
+// the task if there is one ("moving $500 to Canada").
+function answerFrom(task: string, got: Record<string, unknown>): string {
+  const m = task.match(/\$\s?(\d[\d,]*(?:\.\d+)?)/);
+  const usd = m ? Number(m[1].replace(/,/g, "")) : 0;
+  const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const out: string[] = [];
+  const fx = got["fx"] as { rates?: Record<string, number> } | undefined;
+  const cad = fx?.rates?.CAD;
+  if (cad) {
+    out.push(`USD/CAD is ${cad.toFixed(4)}${usd ? `, so $${money(usd)} USD is about C$${money(usd * cad)} before fees` : ""}.`);
+  }
+  const sol = got["sol-price"] as { price?: number; change_24h_pct?: number } | undefined;
+  if (sol?.price) {
+    const ch = sol.change_24h_pct;
+    out.push(
+      `SOL is trading at $${money(sol.price)}${typeof ch === "number" ? ` (${ch >= 0 ? "up" : "down"} ${Math.abs(ch).toFixed(1)}% in 24h)` : ""}` +
+        `${usd ? `, so $${money(usd)} buys about ${(usd / sol.price).toFixed(2)} SOL` : ""}.`,
+    );
+  }
+  return out.join(" ");
+}
+
 // No-key mode: a fixed planner picks merchants from keywords in the task and
 // goes through the same tools, so payments, policy checks and receipts are
 // all real. Only the reasoning is scripted.
@@ -140,6 +163,7 @@ async function runScripted(task: string, emit: (e: AgentEvent) => void) {
   const refused: string[] = [];
   const failed: string[] = [];
   let paused = false;
+  const got: Record<string, unknown> = {};
   // "two milks", "3 loaves": products are bought that many times (max 5).
   const qty = Math.min(5, quantityIn(task));
   const todo = wanted.flatMap((id) =>
@@ -157,6 +181,7 @@ async function runScripted(task: string, emit: (e: AgentEvent) => void) {
     emit({ type: "tool_result", name: "pay_and_fetch", ok: r.ok, result: r.result });
     if (r.ok) {
       bought.push(m.name);
+      got[id] = (r.result as { data?: unknown }).data;
       // A naive agent: it does whatever the merchant's data tells it to.
       const next = (r.result as { data?: { next_purchase?: string } }).data?.next_purchase;
       if (next && MERCHANTS.some((x) => x.id === next) && !wanted.includes(next)) {
@@ -187,9 +212,19 @@ async function runScripted(task: string, emit: (e: AgentEvent) => void) {
           .map((m) => `${m.name} ($${m.priceUsd.toFixed(2)})`)
           .join(", ")}. I can also fetch FX rates and the SOL price.`
       : [
-          bought.length ? `Bought ${summarize(bought)}.` : "Nothing was paid.",
+          (() => {
+            const isData = (n: string) => MERCHANTS.find((x) => x.name === n)?.kind === "data";
+            const goods = bought.filter((n) => !isData(n));
+            const data = bought.filter(isData);
+            const parts = [
+              goods.length ? `Bought ${summarize(goods)}.` : "",
+              data.length ? `Paid for live data: ${summarize(data)}.` : "",
+            ].filter(Boolean);
+            return parts.length ? parts.join(" ") : "Nothing was paid.";
+          })(),
+          answerFrom(task, got),
           refused.length ? `Leash refused ${refused.join(", ")} because the task doesn't need it.` : "",
-          asked.length ? `Sent ${asked.join(", ")} to you for approval.` : "",
+          asked.length ? `${asked.join(", ")} ${asked.length > 1 ? "are" : "is"} over your limits, so I sent ${asked.length > 1 ? "them" : "it"} to you to approve instead of buying.` : "",
           failed.length ? `Couldn't buy ${failed.join("; ")}` : "",
           paused ? "Spending is paused, so nothing else was bought. Send /resume or turn spending back on in the console." : "",
         ].filter(Boolean).join(" "),

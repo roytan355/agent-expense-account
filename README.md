@@ -29,7 +29,7 @@ An agent that can pay for things is useful right up until it buys the wrong thin
 
 ## What it does
 
-- **Hard caps.** Per purchase, per day and per merchant. The agent can't sign past them.
+- **Limits that ask you.** Per purchase, per day and per merchant. Past a limit the agent can't sign on its own; the purchase waits for your approval. There's no hard ceiling above that.
 - **Approvals on your phone.** When a cap blocks something the task needs, @LeashSBot sends you the item, the price and the agent's reason with Approve and Deny buttons.
 - **Auto-approval for small repeat buys.** Past a cap, a purchase of $5 or less from a merchant the agent has already paid goes through without asking, up to $10 a day. It's marked auto-approved on the statement and in Telegram.
 - **One switch to freeze it.** Pause from the console or send `/pause` in Telegram. Nothing moves until you resume.
@@ -70,7 +70,6 @@ Everything is sold over x402 from the same app, so the demo runs on its own. Not
 |---|---|---|
 | FX Rates | $0.01 | Live USD exchange rates (open.er-api.com) |
 | SOL Price | $0.02 | Live SOL/USD and 24h change (CoinGecko) |
-| Premium Market Report | $20.00 | Priced to trip the per-purchase cap |
 | USB-C Cable, 2 m | $8.99 | Leash Shop |
 | Coffee Beans, 1 kg | $14.50 | Leash Shop |
 | Gift Card, $25 | $25.00 | Leash Shop, over the per-purchase cap |

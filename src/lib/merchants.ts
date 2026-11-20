@@ -34,15 +34,6 @@ export const MERCHANTS: Merchant[] = [
     taskHint: /\bsol\b|solana/i,
   },
   {
-    id: "premium-report",
-    name: "Premium Market Report",
-    path: "/api/merchant/premium-report",
-    priceUsd: 20.0,
-    kind: "data",
-    description: "Long-form crypto market report. Expensive.",
-    taskHint: /report|premium|analysis/i,
-  },
-  {
     id: "usb-c-cable",
     name: "USB-C Cable, 2 m",
     path: "/api/shop/usb-c-cable",
