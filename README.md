@@ -32,7 +32,7 @@ An agent that can pay for things is useful right up until it buys the wrong thin
 - **Hard caps.** Per purchase, per day and per merchant. The agent can't sign past them.
 - **Approvals on your phone.** When a cap blocks something the task needs, @LeashSBot sends you the item, the price and the agent's reason with Approve and Deny buttons.
 - **One switch to freeze it.** Pause from the console or send `/pause` in Telegram. Nothing moves until you resume.
-- **Scam protection.** An allowlist of merchants, a card expiry date, a payee check against the merchant's real wallet, and a purpose check that blocks purchases the task never asked for. That last one stops a merchant's reply from talking the agent into buying something else.
+- **Scam protection.** A card expiry date, a payee check against the merchant's real wallet, and a purpose check that blocks purchases the task never asked for. That last one stops a merchant's reply from talking the agent into buying something else.
 - **A statement you can read.** Every payment and every block is a receipt with the rule that fired and a Solana Explorer link for settled payments.
 
 <img src="docs/console.png" alt="The live console: task box, statement, and the Telegram bot on a phone beside it" width="100%" />
@@ -43,7 +43,7 @@ An agent that can pay for things is useful right up until it buys the wrong thin
 flowchart LR
     T["Your task<br/>(web console or Telegram)"] --> A["Agent<br/>picks what to buy"]
     A -->|"pay_and_fetch(merchant, reason)"| C["x402 client<br/>gets 402 + price"]
-    C --> P{"Leash rules<br/>caps, allowlist, pause,<br/>expiry, payee, purpose"}
+    C --> P{"Leash rules<br/>caps, pause,<br/>expiry, payee, purpose"}
     P -->|block| R1["Receipt with the rule<br/>nothing signed"]
     R1 -.->|cap hit| TG["Telegram: Approve / Deny"]
     TG -.->|approve| C
@@ -59,7 +59,7 @@ flowchart LR
 4. If allowed, the client signs a devnet USDC transfer from the agent wallet to the merchant and retries with the payment header.
 5. The facilitator verifies and settles the transfer, and the merchant answers. The facilitator runs inside the app with its own fee-payer wallet, because the public x402.org facilitator was being rate-limited during the build.
 
-An approval lifts the caps for that one payment. The allowlist, pause, expiry, payee and purpose checks still apply.
+An approval lifts the caps for that one payment. The pause, expiry, payee and purpose checks still apply.
 
 ## Merchants
 

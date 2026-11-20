@@ -102,7 +102,7 @@ const TASKS = [
 ];
 
 export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; wallets: Wallets | null; refresh: () => void }) {
-  const [tab, setTab] = useState<"rules" | "safety" | "merchants">("rules");
+  const [tab, setTab] = useState<"rules" | "safety">("rules");
   if (!ledger) return <p className="muted">Loading the account…</p>;
 
   const { policy } = ledger;
@@ -145,14 +145,13 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
           <Phone ledger={ledger} onChange={refresh} />
           <div className="stack">
             <div className="sheet top tabs" role="tablist">
-              {([["rules", "Spending rules"], ["safety", "Scam protection"], ["merchants", "Merchants"]] as const).map(([k, label]) => (
+              {([["rules", "Spending rules"], ["safety", "Scam protection"]]  as const).map(([k, label]) => (
                 <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "tab on" : "tab"} onClick={() => setTab(k)}>{label}</button>
               ))}
             </div>
             <div className="sheet under">
               {tab === "rules" && <RulesForm policy={policy} onSaved={refresh} />}
               {tab === "safety" && <Safety policy={policy} onChange={refresh} />}
-              {tab === "merchants" && <Merchants ledger={ledger} onChange={refresh} />}
             </div>
           </div>
         </div>
@@ -262,63 +261,6 @@ function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) 
         "Poison the FX merchant",
         "Demo: the FX reply hides an instruction telling the agent to buy the SOL price too. Ask only about USD/CAD to see it.",
       )}
-    </section>
-  );
-}
-
-function Merchants({ ledger, onChange }: { ledger: Ledger; onChange: () => void }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  const { policy } = ledger;
-  return (
-    <section className="pane" data-lenis-prevent>
-      <table className="merchants">
-        <thead>
-          <tr><th>Merchant</th><th className="r">Price</th><th className="r">Today</th><th>Allowed</th><th /></tr>
-        </thead>
-        <tbody>
-          {MERCHANTS.map((m) => {
-            const allowed = policy.allowlist.includes(m.id);
-            const spent = ledger.spent_by_merchant[m.id] ?? 0;
-            return (
-              <tr key={m.id}>
-                <td>{m.name}</td>
-                <td className="r num">{usd(m.price)}</td>
-                <td className="r num">{usd(spent)}</td>
-                <td>
-                  <input
-                    type="checkbox"
-                    aria-label={`Allow ${m.name}`}
-                    checked={allowed}
-                    onChange={async () => {
-                      const allowlist = allowed ? policy.allowlist.filter((x) => x !== m.id) : [...policy.allowlist, m.id];
-                      await postPolicy({ allowlist });
-                      onChange();
-                    }}
-                  />
-                </td>
-                <td className="r">
-                  <button
-                    className="btn small"
-                    disabled={busy !== null}
-                    onClick={async () => {
-                      setBusy(m.id);
-                      await fetch("/api/pay", {
-                        method: "POST",
-                        headers: { "content-type": "application/json" },
-                        body: JSON.stringify({ merchant: m.id, reason: "Manual test purchase from the dashboard" }),
-                      });
-                      setBusy(null);
-                      onChange();
-                    }}
-                  >
-                    {busy === m.id ? "Buying…" : "Buy"}
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
     </section>
   );
 }
@@ -500,7 +442,7 @@ const RULE_TEXT: Record<string, string> = {
   per_call_cap: "over your per-purchase limit",
   per_day_cap: "over your daily limit",
   per_merchant_cap: "over your per-merchant limit",
-  allowlist: "merchant not on your list",
+  allowlist: "not something Leash can buy",
   paused: "spending is paused",
   expired: "the card has expired",
   payee_mismatch: "paid to the wrong wallet",

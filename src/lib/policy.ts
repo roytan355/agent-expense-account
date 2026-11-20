@@ -41,9 +41,6 @@ export function evaluate(
   if (now > new Date(policy.expires_at)) {
     return { allow: false, rule: "expired", message: `Policy expired at ${policy.expires_at}.` };
   }
-  if (!policy.allowlist.includes(p.merchant)) {
-    return { allow: false, rule: "allowlist", message: `Merchant "${p.merchant}" is not on the allowlist.` };
-  }
   if (p.payTo !== p.expectedPayTo) {
     return {
       allow: false,

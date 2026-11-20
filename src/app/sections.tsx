@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
-import { addrUrl, MERCHANTS, short, usd, type Ledger, type Wallets } from "./console";
+import { addrUrl, short, usd, type Ledger, type Wallets } from "./console";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -72,7 +72,7 @@ export function Hero() {
 const BEATS = [
   "AI agents are starting to pay for things on their own.",
   "To pay, an agent needs a wallet. Today that means handing a model a funded key and hoping.",
-  "People solved this with company cards: a limit, approved vendors, a statement. Leash is that card, for agents.",
+  "People solved this with company cards: a limit, a statement, someone to ask before a big purchase. Leash is that card, for agents.",
 ];
 
 export function Problem() {
@@ -138,7 +138,7 @@ const STEPS: { title: string; detail: React.ReactNode }[] = [
     title: "Leash checks the rules before anything is signed.",
     detail: (
       <ul className="checks">
-        {["Under your per-purchase limit", "Under your daily limit", "Merchant is allowed", "Paid to the wallet on file", "Spending is not paused", "Serves the task you gave it"].map((c) => (
+        {["Under your per-purchase limit", "Under your daily limit", "Paid to the wallet on file", "Spending is not paused", "Serves the task you gave it"].map((c) => (
           <li key={c}><span>{c}</span><span className="pass">Pass</span></li>
         ))}
       </ul>
@@ -222,7 +222,6 @@ export function Rules({ ledger }: { ledger: Ledger | null }) {
         ["Per day", usd(p.per_day_max_usdc)],
         ["Per merchant, per day", usd(p.per_merchant_max_usdc)],
         ["Card expires", new Date(p.expires_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })],
-        ["Allowed merchants", `${p.allowlist.length} of ${MERCHANTS.length}`],
         ["Spending", p.paused ? "Paused" : "On"],
         ["Purpose check", p.purpose_check ? "On" : "Off"],
       ]

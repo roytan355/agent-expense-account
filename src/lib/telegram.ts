@@ -58,7 +58,7 @@ const RULE_TEXT: Record<string, string> = {
   per_call_cap: "over your per-purchase limit",
   per_day_cap: "over your daily limit",
   per_merchant_cap: "over your per-merchant limit",
-  allowlist: "merchant not on your list",
+  allowlist: "not something Leash can buy",
   paused: "spending is paused",
   expired: "the card has expired",
   payee_mismatch: "paid to the wrong wallet",
