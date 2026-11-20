@@ -31,8 +31,9 @@ An agent that can pay for things is useful right up until it buys the wrong thin
 
 - **Hard caps.** Per purchase, per day and per merchant. The agent can't sign past them.
 - **Approvals on your phone.** When a cap blocks something the task needs, @LeashSBot sends you the item, the price and the agent's reason with Approve and Deny buttons.
+- **Auto-approval for small repeat buys.** Past a cap, a purchase of $5 or less from a merchant the agent has already paid goes through without asking, up to $10 a day. It's marked auto-approved on the statement and in Telegram.
 - **One switch to freeze it.** Pause from the console or send `/pause` in Telegram. Nothing moves until you resume.
-- **Scam protection.** A card expiry date, a payee check against the merchant's real wallet, and a purpose check that blocks purchases the task never asked for. That last one stops a merchant's reply from talking the agent into buying something else.
+- **Scam protection.** A card expiry date, a payee check against the merchant's real wallet, a price check that refuses any checkout asking for more than the listed price, and a purpose check that blocks purchases the task never asked for. That last one stops a merchant's reply from talking the agent into buying something else.
 - **A statement you can read.** Every payment and every block is a receipt with the rule that fired and a Solana Explorer link for settled payments.
 
 <img src="docs/console.png" alt="The live console: task box, statement, and the Telegram bot on a phone beside it" width="100%" />
@@ -43,7 +44,7 @@ An agent that can pay for things is useful right up until it buys the wrong thin
 flowchart LR
     T["Your task<br/>(web console or Telegram)"] --> A["Agent<br/>picks what to buy"]
     A -->|"pay_and_fetch(merchant, reason)"| C["x402 client<br/>gets 402 + price"]
-    C --> P{"Leash rules<br/>caps, pause,<br/>expiry, payee, purpose"}
+    C --> P{"Leash rules<br/>caps, pause, expiry,<br/>payee, price, purpose"}
     P -->|block| R1["Receipt with the rule<br/>nothing signed"]
     R1 -.->|cap hit| TG["Telegram: Approve / Deny"]
     TG -.->|approve| C
@@ -59,7 +60,7 @@ flowchart LR
 4. If allowed, the client signs a devnet USDC transfer from the agent wallet to the merchant and retries with the payment header.
 5. The facilitator verifies and settles the transfer, and the merchant answers. The facilitator runs inside the app with its own fee-payer wallet, because the public x402.org facilitator was being rate-limited during the build.
 
-An approval lifts the caps for that one payment. The pause, expiry, payee and purpose checks still apply.
+An approval lifts the caps for that one payment, and so does an auto-approval. The pause, expiry, payee and price checks still apply, and the purpose check still runs on auto-approved purchases. A console switch makes the coffee shop ask $14.99 at checkout for beans listed at $14.50, to show the price check: that's under every cap and still refused.
 
 ## Merchants
 
@@ -77,7 +78,7 @@ Everything is sold over x402 from the same app, so the demo runs on its own. Not
 | Eggs, dozen | $5.49 | Leash Shop groceries |
 | Bread, 1 loaf | $3.99 | Leash Shop groceries |
 
-Default rules: $15 per purchase, $40 per day, $20 per merchant, purpose check on, card valid for 7 days.
+Default rules: $15 per purchase, $40 per day, $20 per merchant, auto-approve up to $5 from known merchants ($10 a day), purpose check on, card valid for 7 days.
 
 ## Telegram bot
 
@@ -148,4 +149,4 @@ node --env-file=.env.local scripts/refill.mjs              # top the agent back 
 
 - The rules run on our server, which holds the key. Moving them on-chain (a token-account delegate or a small program with spending limits) would mean the owner doesn't have to trust the server either.
 - The store is a JSON file. Multiple users need a real database and one wallet per agent.
-- Next: team accounts with a budget per agent, real merchants that accept x402, and approval rules like "anything under $5 from a known merchant is fine".
+- Next: team accounts with a budget per agent, real merchants that accept x402, and a velocity limit on purchases per minute.
