@@ -41,8 +41,8 @@ export function NightFall({ target }: { target: string }) {
       ease: "none",
       scrollTrigger: {
         trigger: target,
-        start: "top bottom",
-        end: "top 55%",
+        start: "top 70%",
+        end: "top 25%",
         scrub: true,
         onUpdate: (st) => document.documentElement.classList.toggle("night", st.progress > 0.6),
       },
