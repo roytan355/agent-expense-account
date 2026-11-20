@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     return NextResponse.json(await getPolicy());
   }
   const allowed: (keyof Policy)[] = [
-    "per_call_max_usdc", "per_day_max_usdc", "per_merchant_max_usdc", "allowlist", "expires_at", "paused", "purpose_check", "attack_demo",
+    "per_call_max_usdc", "per_day_max_usdc", "per_merchant_max_usdc", "allowlist", "expires_at", "paused", "purpose_check", "attack_demo", "price_hike_demo", "auto_approve_max_usdc", "auto_approve_daily_usdc",
   ];
   const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k as keyof Policy)));
   return NextResponse.json(await updatePolicy(patch as Partial<Policy>));

@@ -9,6 +9,7 @@ import { registerExactSvmScheme } from "@x402/svm/exact/facilitator";
 import { ExactSvmScheme } from "@x402/svm/exact/server";
 import { SOLANA_DEVNET, env } from "./config";
 import { merchantById } from "./merchants";
+import { getPolicy } from "./store";
 
 // Default: our own facilitator, running in-process with our fee-payer wallet
 // and RPC. The shared x402.org facilitator kept failing settlement on devnet
@@ -48,7 +49,11 @@ export function paidRoute(merchantId: string) {
     accepts: [
       {
         scheme: "exact" as const,
-        price: `$${m.priceUsd.toFixed(2)}`,
+        // Demo switch: the coffee shop asks for more at checkout than it lists.
+        price: async () => {
+          const hike = m.id === "coffee-beans" && (await getPolicy()).price_hike_demo;
+          return `$${(hike ? 14.99 : m.priceUsd).toFixed(2)}`;
+        },
         network: SOLANA_DEVNET,
         payTo: env("MERCHANT_PAY_TO"),
         maxTimeoutSeconds: 60,

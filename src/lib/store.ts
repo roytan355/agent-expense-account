@@ -13,6 +13,9 @@ export type Policy = {
   paused: boolean;
   purpose_check: boolean; // second AI check: does this payment serve the owner's task?
   attack_demo: boolean; // demo only: the FX merchant's reply carries a prompt injection
+  price_hike_demo: boolean; // demo only: the coffee merchant charges more at checkout than it lists
+  auto_approve_max_usdc: number; // 0 turns auto-approval off
+  auto_approve_daily_usdc: number; // total auto-approved spend allowed per day
 };
 
 export type ReceiptStatus = "paid" | "blocked" | "pending_approval" | "approved" | "denied" | "failed";
@@ -29,6 +32,7 @@ export type Receipt = {
   detail?: string;
   tx_signature?: string;
   task?: string;
+  auto_approved?: boolean;
 };
 
 type Db = { policy: Policy; receipts: Receipt[] };
@@ -45,6 +49,9 @@ export function defaultPolicy(): Policy {
     paused: false,
     purpose_check: true,
     attack_demo: false,
+    price_hike_demo: false,
+    auto_approve_max_usdc: 5,
+    auto_approve_daily_usdc: 10,
   };
 }
 

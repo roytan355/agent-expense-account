@@ -9,7 +9,7 @@ import { ExactSvmScheme } from "@x402/svm/exact/client";
 import { SOLANA_DEVNET, USDC_DECIMALS, baseUrl, env } from "./config";
 import { merchantById } from "./merchants";
 import { purposeCheck } from "./guard";
-import { evaluate } from "./policy";
+import { CAP_RULES, autoApproves, evaluate } from "./policy";
 import { addReceipt, getPolicy, listReceipts, type Receipt } from "./store";
 
 let signerPromise: Promise<KeyPairSigner> | null = null;
@@ -30,9 +30,8 @@ export type PayResult =
   | { ok: true; receipt: Receipt; data: unknown }
   | { ok: false; receipt: Receipt; error: string };
 
-// An owner approval lifts the spending caps for one payment. Pause, expiry,
-// the allowlist and the payee check still apply.
-const CAP_RULES = new Set(["per_call_cap", "per_day_cap", "per_merchant_cap"]);
+// An owner approval (or an auto-approval) lifts the spending caps for one
+// payment. Pause, expiry, the payee check and the price check still apply.
 
 export function payAndFetch(
   merchantId: string,
@@ -64,20 +63,30 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
 
   let amountUsdc = merchant.priceUsd;
   let blocked: { rule: string; message: string } | null = null;
+  let autoNote: string | null = null;
 
   client.onBeforePaymentCreation(async (ctx) => {
     const req = ctx.selectedRequirements;
     amountUsdc = Number(req.amount) / 10 ** USDC_DECIMALS;
     const policy = await getPolicy();
-    const decision = evaluate(policy, await listReceipts(), {
+    const receipts = await listReceipts();
+    const proposed = {
       merchant: merchant.id,
+      name: merchant.name,
       amountUsdc,
       payTo: req.payTo,
       expectedPayTo: env("MERCHANT_PAY_TO"),
-    });
+      listedUsdc: merchant.priceUsd,
+    };
+    const decision = evaluate(policy, receipts, proposed);
+    autoNote = null;
     if (!decision.allow && !(approved && CAP_RULES.has(decision.rule))) {
-      blocked = { rule: decision.rule, message: decision.message };
-      return { abort: true, reason: decision.message };
+      if (!approved && autoApproves(policy, receipts, proposed, decision.rule)) {
+        autoNote = `${decision.message} Auto-approved: under $${policy.auto_approve_max_usdc.toFixed(2)} from a merchant you've paid before.`;
+      } else {
+        blocked = { rule: decision.rule, message: decision.message };
+        return { abort: true, reason: decision.message };
+      }
     }
     // The owner already looked at an approved payment, so it skips this check.
     if (policy.purpose_check && task && !approved) {
@@ -116,6 +125,7 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
     const receipt = await addReceipt({
       merchant: merchant.id, url, amount_usdc: amountUsdc, reason, task, status: "paid",
       tx_signature: settle?.transaction,
+      ...(autoNote ? { auto_approved: true, detail: autoNote } : {}),
     });
     return { ok: true, receipt, data };
   } catch (err) {

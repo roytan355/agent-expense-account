@@ -14,6 +14,9 @@ export type Policy = {
   paused: boolean;
   purpose_check: boolean;
   attack_demo: boolean;
+  price_hike_demo: boolean;
+  auto_approve_max_usdc: number;
+  auto_approve_daily_usdc: number;
 };
 export type Receipt = {
   id: string;
@@ -26,6 +29,7 @@ export type Receipt = {
   detail?: string;
   tx_signature?: string;
   task?: string;
+  auto_approved?: boolean;
 };
 export type Ledger = { policy: Policy; spent_today: number; spent_by_merchant: Record<string, number>; receipts: Receipt[] };
 export type Wallet = { address: string; sol: number; usdc: number };
@@ -182,6 +186,8 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
     per_day_max_usdc: String(policy.per_day_max_usdc),
     per_merchant_max_usdc: String(policy.per_merchant_max_usdc),
     expires_at: policy.expires_at.slice(0, 10),
+    auto_approve_max_usdc: String(policy.auto_approve_max_usdc),
+    auto_approve_daily_usdc: String(policy.auto_approve_daily_usdc),
   });
   const [saved, setSaved] = useState(false);
 
@@ -208,6 +214,8 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
             per_day_max_usdc: Number(draft.per_day_max_usdc),
             per_merchant_max_usdc: Number(draft.per_merchant_max_usdc),
             expires_at: new Date(`${draft.expires_at}T23:59:59Z`).toISOString(),
+            auto_approve_max_usdc: Number(draft.auto_approve_max_usdc),
+            auto_approve_daily_usdc: Number(draft.auto_approve_daily_usdc),
           });
           setSaved(true);
           onSaved();
@@ -218,7 +226,10 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
           {field("per_day_max_usdc", "Most per day ($)")}
           {field("per_merchant_max_usdc", "Most per merchant per day ($)")}
           {field("expires_at", "Card expires", "date")}
+          {field("auto_approve_max_usdc", "Auto-approve up to ($, 0 = off)")}
+          {field("auto_approve_daily_usdc", "Auto-approved per day ($)")}
         </div>
+        <p className="muted small">Past a limit, a purchase this small from a merchant the agent has paid before goes through without asking you, up to the daily amount.</p>
         <div className="row">
           <button className="btn" type="submit">Save rules</button>
           {saved && <span className="muted">Rules saved.</span>}
@@ -236,7 +247,7 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
 }
 
 function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) {
-  const toggle = (key: "purpose_check" | "attack_demo", label: string, help: string) => (
+  const toggle = (key: "purpose_check" | "attack_demo" | "price_hike_demo", label: string, help: string) => (
     <label className="toggle">
       <span className="toggle-text">
         <strong>{label}</strong>
@@ -260,6 +271,11 @@ function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) 
         "attack_demo",
         "Poison the FX merchant",
         "Demo: the FX reply hides an instruction telling the agent to buy the SOL price too. Ask only about USD/CAD to see it.",
+      )}
+      {toggle(
+        "price_hike_demo",
+        "Coffee shop raises its price at checkout",
+        "Demo: the coffee beans are listed at $14.50 but the checkout asks for $14.99. That's under your limits, and Leash still refuses it.",
       )}
     </section>
   );
@@ -411,7 +427,7 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
               </div>
               <div className="entry-sub">
                 <span className={`tag ${r.status}`}>
-                  {r.rule_hit === "purpose_check" ? "Blocked, purpose check" : STATUS_LABEL[r.status]}
+                  {r.rule_hit === "purpose_check" ? "Blocked, purpose check" : r.rule_hit === "price_changed" ? "Blocked, price changed" : r.auto_approved ? "Auto-approved" : STATUS_LABEL[r.status]}
                 </span>
                 <time className="muted num">{new Date(r.created_at).toLocaleTimeString()}</time>
                 {r.tx_signature && (
@@ -421,6 +437,7 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
               <p className="entry-reason">{r.reason}</p>
               {r.rule_hit === "purpose_check" && r.task && <p className="entry-note">Your task: {r.task}</p>}
               {r.status !== "paid" && r.detail && <p className={r.status === "approved" ? "entry-note" : "entry-detail"}>{r.detail}</p>}
+              {r.auto_approved && r.detail && <p className="entry-note">{r.detail}</p>}
               {r.status === "pending_approval" && (
                 <div className="row">
                   <button className="btn small" disabled={busy !== null} onClick={() => decide(r.id, "approve")}>
@@ -447,6 +464,7 @@ const RULE_TEXT: Record<string, string> = {
   expired: "the card has expired",
   payee_mismatch: "paid to the wrong wallet",
   purpose_check: "the task doesn't need it",
+  price_changed: "charged more than its listed price",
 };
 
 type Msg =
@@ -469,7 +487,7 @@ function Phone({ ledger, onChange }: { ledger: Ledger; onChange: () => void }) {
       lastTask = r.task;
       msgs.push({ k: `t${r.id}`, from: "me", text: r.task });
     }
-    if (r.status === "paid") msgs.push({ k: r.id, from: "bot", text: `Paid ${name(r.merchant)}, ${usd(r.amount_usdc)}`, link: r.tx_signature });
+    if (r.status === "paid") msgs.push({ k: r.id, from: "bot", text: `Paid ${name(r.merchant)}, ${usd(r.amount_usdc)}${r.auto_approved ? "\nOver your limit, auto-approved: small purchase from a merchant you've used." : ""}`, link: r.tx_signature });
     else if (r.status === "pending_approval" || r.status === "approved" || r.status === "denied")
       msgs.push({
         k: r.id,

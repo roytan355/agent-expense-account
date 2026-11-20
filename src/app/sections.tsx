@@ -138,7 +138,7 @@ const STEPS: { title: string; detail: React.ReactNode }[] = [
     title: "Leash checks the rules before anything is signed.",
     detail: (
       <ul className="checks">
-        {["Under your per-purchase limit", "Under your daily limit", "Paid to the wallet on file", "Spending is not paused", "Serves the task you gave it"].map((c) => (
+        {["Under your per-purchase limit", "Under your daily limit", "Charged the listed price", "Paid to the wallet on file", "Spending is not paused", "Serves the task you gave it"].map((c) => (
           <li key={c}><span>{c}</span><span className="pass">Pass</span></li>
         ))}
       </ul>
@@ -224,6 +224,7 @@ export function Rules({ ledger }: { ledger: Ledger | null }) {
         ["Card expires", new Date(p.expires_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })],
         ["Spending", p.paused ? "Paused" : "On"],
         ["Purpose check", p.purpose_check ? "On" : "Off"],
+        ["Auto-approve", p.auto_approve_max_usdc > 0 ? `Under ${usd(p.auto_approve_max_usdc)}, known merchants` : "Off"],
       ]
     : [];
   return (

@@ -63,6 +63,7 @@ const RULE_TEXT: Record<string, string> = {
   expired: "the card has expired",
   payee_mismatch: "paid to the wrong wallet",
   purpose_check: "the task doesn't need it",
+  price_changed: "charged more than its listed price",
 };
 
 async function spentToday() {
@@ -96,6 +97,7 @@ async function statusText() {
     `Per purchase: up to ${usd(p.per_call_max_usdc)}`,
     `Spending: ${p.paused ? "paused" : "on"}`,
     `Purpose check: ${p.purpose_check ? "on" : "off"}`,
+    `Auto-approve: ${p.auto_approve_max_usdc > 0 ? `up to ${usd(p.auto_approve_max_usdc)} each, ${usd(p.auto_approve_daily_usdc)} a day` : "off"}`,
   ].join("\n");
 }
 
@@ -116,10 +118,10 @@ async function runTask(chatId: number, task: string) {
     if (e.type === "tool_call" && e.name === "pay_and_fetch") {
       lastMerchant = String((e.input as { merchant?: string }).merchant ?? "");
     } else if (e.type === "tool_result" && e.name === "pay_and_fetch") {
-      const r = e.result as { paid_usd?: number; tx?: string; rule?: string; message?: string };
+      const r = e.result as { paid_usd?: number; tx?: string; rule?: string; message?: string; auto_approved?: boolean };
       const name = merchantName(lastMerchant);
       if (e.ok && r.tx) {
-        lines.push(send(chatId, `Paid ${name}, ${usd(r.paid_usd ?? 0)}`, [[{ text: "View on Solana Explorer", url: explorerTx(r.tx) }]]));
+        lines.push(send(chatId, `Paid ${name}, ${usd(r.paid_usd ?? 0)}${r.auto_approved ? "\nOver your limit, auto-approved: small purchase from a merchant you've used." : ""}`, [[{ text: "View on Solana Explorer", url: explorerTx(r.tx) }]]));
       } else {
         const why = (r.rule && RULE_TEXT[r.rule]) ?? r.message ?? "blocked";
         lines.push(send(chatId, `Blocked ${name}: ${why}.${r.rule === "purpose_check" && r.message ? `\n${r.message}` : ""}`));
