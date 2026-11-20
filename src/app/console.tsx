@@ -4,6 +4,7 @@
 // Same behaviour as the original dashboard; the ledger is polled by the page
 // (useLedger) so the 3D card and the rules section can show live values too.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Icon, Tile, MERCHANT_TILE } from "./icons";
 
 export type Policy = {
   per_call_max_usdc: number;
@@ -112,7 +113,7 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
     () => new URLSearchParams(window.location.search).has("demo"),
     () => false,
   );
-  if (!ledger) return <p className="muted">Loading the account…</p>;
+  if (!ledger) return <p className="muted">Loading…</p>;
 
   const { policy } = ledger;
   // the ledger re-polls every 2s, so reading the clock on render stays current
@@ -126,21 +127,22 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
       <section className="meter" aria-label="Spending today">
         <div className="meter-spent num">{usd(ledger.spent_today)}</div>
         <div className="meter-mid">
-          <div className="meter-of">spent today of your <strong className="num">{usd(policy.per_day_max_usdc)}</strong> daily limit</div>
+          <div className="meter-of">of <span className="num">{usd(policy.per_day_max_usdc)}</span> today</div>
           <div className="bar" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
             <div className={`bar-fill ${pct >= 100 ? "full" : ""}`} style={{ width: `${pct}%` }} />
           </div>
           <div className="wallets">
-            <WalletLine label="Agent wallet" w={wallets?.agent} />
-            <WalletLine label="Merchant wallet" w={wallets?.merchant} />
+            <WalletLine label="Agent" w={wallets?.agent} />
+            <WalletLine label="Merchant" w={wallets?.merchant} />
           </div>
         </div>
         <div className="meter-state">
           <span className={`state ${off ? "off" : "on"}`}>
-            {policy.paused ? "Spending paused" : expired ? "Card expired" : "Spending allowed"}
+            {policy.paused ? "Paused" : expired ? "Expired" : "Active"}
           </span>
           <button className={policy.paused ? "btn" : "btn danger"} onClick={async () => { await postPolicy({ paused: !policy.paused }); refresh(); }}>
-            {policy.paused ? "Resume spending" : "Pause spending"}
+            <Icon name={policy.paused ? "play" : "pause"} size={16} />
+            {policy.paused ? "Resume" : "Pause"}
           </button>
         </div>
       </section>
@@ -152,17 +154,19 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
         </div>
         <div className="deck-side">
           <Phone ledger={ledger} onChange={refresh} />
-          <div className="stack">
-            <div className="sheet top tabs" role="tablist">
-              {(demo ? ([["rules", "Spending rules"], ["tests", "Test scenarios"]] as const) : ([["rules", "Spending rules"]] as const)).map(([k, label]) => (
-                <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "tab on" : "tab"} onClick={() => setTab(k)}>{label}</button>
-              ))}
+          <section>
+            <div className="group-head">
+              <h3>{demo && tab === "tests" ? "Test scenarios" : "Rules"}</h3>
+              {demo && (
+                <div className="seg" role="tablist">
+                  {([["rules", "Rules"], ["tests", "Tests"]] as const).map(([k, label]) => (
+                    <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{label}</button>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="sheet under">
-              {tab === "rules" && <RulesForm policy={policy} onSaved={refresh} />}
-              {demo && tab === "tests" && <TestScenarios policy={policy} onChange={refresh} />}
-            </div>
-          </div>
+            {tab === "rules" || !demo ? <RulesForm policy={policy} onSaved={refresh} /> : <TestScenarios policy={policy} onChange={refresh} />}
+          </section>
         </div>
       </div>
     </div>
@@ -175,8 +179,8 @@ export function WalletLine({ label, w }: { label: string; w?: Wallet }) {
       <span className="muted">{label}</span>{" "}
       {w ? (
         <>
-          <a href={addrUrl(w.address)} target="_blank" rel="noreferrer">{short(w.address)}</a>{" "}
-          <strong className="num">{w.usdc.toFixed(2)} USDC</strong>
+          <strong className="num">{w.usdc.toFixed(2)} USDC</strong>{" "}
+          <a href={addrUrl(w.address)} target="_blank" rel="noreferrer">{short(w.address)}</a>
         </>
       ) : (
         <span className="muted">checking…</span>
@@ -196,9 +200,11 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
   });
   const [saved, setSaved] = useState(false);
 
-  const field = (key: keyof typeof draft, label: string, type = "number") => (
-    <label className="field">
-      <span>{label}</span>
+  const field = (key: keyof typeof draft, label: string, icon: Parameters<typeof Tile>[0]["name"], type = "number") => (
+    <label className="setting">
+      <Tile name={icon} size={28} />
+      <span className="setting-label">{label}</span>
+      {type === "number" && <span className="setting-unit">$</span>}
       <input
         type={type}
         step="0.01"
@@ -210,7 +216,7 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
   );
 
   return (
-    <section className="pane">
+    <div>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -226,34 +232,39 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
           onSaved();
         }}
       >
-        <div className="fields">
-          {field("per_call_max_usdc", "Ask me above, per purchase ($)")}
-          {field("per_day_max_usdc", "Ask me above, per day ($)")}
-          {field("per_merchant_max_usdc", "Ask me above, per merchant per day ($)")}
-          {field("expires_at", "Card expires", "date")}
-          {field("auto_approve_max_usdc", "Auto-approve up to ($, 0 = off)")}
-          {field("auto_approve_daily_usdc", "Auto-approved per day ($)")}
+        <p className="group-label">Ask me before going over</p>
+        <div className="group">
+          {field("per_call_max_usdc", "Per purchase", "tag")}
+          {field("per_day_max_usdc", "Per day", "calendar")}
+          {field("per_merchant_max_usdc", "Per merchant", "store")}
         </div>
-        <p className="muted small">Past a limit, a purchase this small from a merchant the agent has paid before goes through without asking you, up to the daily amount.</p>
+        <p className="group-label">Auto-approve repeat buys</p>
+        <div className="group">
+          {field("auto_approve_max_usdc", "Up to", "sparkle")}
+          {field("auto_approve_daily_usdc", "Per day", "calendar")}
+        </div>
+        <p className="group-foot">Only for merchants the agent has paid before. Set to 0 to turn off.</p>
+        <div className="group">
+          {field("expires_at", "Card expires", "clock", "date")}
+        </div>
         <div className="row">
-          <button className="btn" type="submit">Save rules</button>
-          {saved && <span className="muted">Rules saved.</span>}
+          <button className="btn" type="submit">{saved ? "Saved" : "Save"}</button>
           <button
             className="btn quiet"
             type="button"
             onClick={async () => { await postPolicy({ reset: true }); setSaved(false); onSaved(); }}
           >
-            Reset account
+            Reset
           </button>
         </div>
       </form>
-    </section>
+    </div>
   );
 }
 
 function TestScenarios({ policy, onChange }: { policy: Policy; onChange: () => void }) {
   const toggle = (key: "attack_demo" | "price_hike_demo", label: string, help: string) => (
-    <label className="toggle">
+    <label className="setting toggle">
       <span className="toggle-text">
         <strong>{label}</strong>
         <span className="muted small">{help}</span>
@@ -266,10 +277,10 @@ function TestScenarios({ policy, onChange }: { policy: Policy; onChange: () => v
     </label>
   );
   return (
-    <section className="pane">
+    <div className="group">
       {toggle("attack_demo", "Sneaky merchant", "The FX merchant tries to get the agent to buy something extra.")}
       {toggle("price_hike_demo", "Price change", "The coffee shop charges more at checkout than it lists.")}
-    </section>
+    </div>
   );
 }
 
@@ -321,63 +332,62 @@ function AgentConsole({ onActivity }: { onActivity: () => void }) {
   }
 
   return (
-    <div className="stack">
-      <section className="sheet top composer">
-        <label className="sheet-title" htmlFor="task">Give the agent a task</label>
-        <textarea id="task" value={task} onChange={(e) => setTask(e.target.value)} rows={3} />
-        <div className="composer-foot">
-          <div className="chips">
-            {TASKS.map((t) => (
-              <button key={t} type="button" className="chip" onClick={() => setTask(t)} disabled={running}>{t}</button>
-            ))}
-          </div>
-          <button className="btn run" onClick={run} disabled={running || !task.trim()}>
-            {running ? "Working…" : "Run agent"}
-          </button>
+    <section className="card composer">
+      <label className="card-title" htmlFor="task">Ask the agent</label>
+      <textarea id="task" value={task} onChange={(e) => setTask(e.target.value)} rows={3} />
+      <div className="composer-foot">
+        <div className="chips">
+          {TASKS.map((t) => (
+            <button key={t} type="button" className="chip" onClick={() => setTask(t)} disabled={running}>{t}</button>
+          ))}
         </div>
-      </section>
-      <div className="sheet under activity">
-        {events.length === 0 ? (
-          <p className="muted">The agent&apos;s steps show up here: what it checked, what it paid for, and what Leash stopped.</p>
-        ) : (
-          <ol className="log" ref={logRef} data-lenis-prevent>
-            {events.map((e, i) => <EventLine key={i} e={e} />)}
-          </ol>
-        )}
+        <button className="btn run" onClick={run} disabled={running || !task.trim()}>
+          <Icon name="play" size={14} />
+          {running ? "Working" : "Run"}
+        </button>
       </div>
-    </div>
+      {events.length > 0 && (
+        <ol className="log" ref={logRef} data-lenis-prevent>
+          {events.map((e, i) => <EventLine key={i} e={e} />)}
+        </ol>
+      )}
+    </section>
   );
 }
 
 function EventLine({ e }: { e: AgentEvent }) {
   switch (e.type) {
     case "text":
-      return <li className="ev think">{e.text}</li>;
+      return <li className="ev think"><Icon name="bubble" size={15} /><span>{e.text}</span></li>;
     case "tool_call":
-      if (e.name === "list_merchants") return <li className="ev call">Checked the merchant list</li>;
+      if (e.name === "list_merchants") return <li className="ev call"><Icon name="search" size={15} /><span>Checked what&apos;s for sale</span></li>;
       return (
         <li className="ev call">
-          {e.name === "pay_and_fetch" ? "Wants to pay" : "Asked you to approve"} <strong>{String(e.input.merchant)}</strong>
-          {e.input.reason ? <span className="muted"> because {String(e.input.reason).replace(/^[A-Z](?=[a-z ])/, (c) => c.toLowerCase())}</span> : null}
+          <Icon name="arrow" size={15} />
+          <span>
+            {e.name === "pay_and_fetch" ? "Paying" : "Asking you about"} <strong>{MERCHANTS.find((m) => m.id === e.input.merchant)?.name ?? String(e.input.merchant)}</strong>
+            {e.input.reason ? <span className="muted"> {String(e.input.reason)}</span> : null}
+          </span>
         </li>
       );
     case "tool_result": {
       if (e.name === "list_merchants") return null;
       const r = e.result;
-      if (e.name === "request_approval") return <li className="ev pending">Approval request sent to you</li>;
+      if (e.name === "request_approval") return <li className="ev pending"><Icon name="clock" size={15} /><span>Sent to you for approval</span></li>;
       return e.ok ? (
         <li className="ev paid">
-          Paid {usd(Number(r.paid_usd))}.
-          {r.tx ? <a className="ev-link" href={txUrl(String(r.tx))} target="_blank" rel="noreferrer">View transaction</a> : null}
+          <Icon name="check" size={15} />
+          <span>Paid {usd(Number(r.paid_usd))}</span>
+          {r.tx ? <a className="ev-link" href={txUrl(String(r.tx))} target="_blank" rel="noreferrer">Receipt</a> : null}
         </li>
       ) : (
-        <li className="ev blocked">Blocked: {String(r.message)}</li>
+        <li className="ev blocked"><Icon name="xmark" size={15} /><span>Not paid. {String(r.message)}</span></li>
       );
     }
     case "done":
-      return <li className="ev answer">{e.text}</li>;
+      return <li className="ev answer"><span>{e.text}</span></li>;
     case "error":
-      return <li className="ev blocked">The agent stopped: {e.message}</li>;
+      return <li className="ev blocked"><Icon name="xmark" size={15} /><span>Stopped: {e.message}</span></li>;
   }
 }
 
@@ -397,52 +407,56 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
   const stopped = receipts.filter((r) => r.status === "blocked" || r.status === "denied").length;
   const open = receipts.filter((r) => r.status === "pending_approval").length;
   return (
-    <div className="stack">
-      <header className="sheet top statement-head">
-        <span className="sheet-title">Statement</span>
+    <section>
+      <div className="group-head">
+        <h3>Activity</h3>
         <dl className="totals">
           <div><dt>Paid</dt><dd className="num">{usd(paid)}</dd></div>
           <div><dt>Stopped</dt><dd className="num">{stopped}</dd></div>
-          <div><dt>Waiting on you</dt><dd className="num">{open}</dd></div>
+          {open > 0 && <div className="waiting"><dt>Waiting</dt><dd className="num">{open}</dd></div>}
         </dl>
-      </header>
-      <div className="sheet under">
+      </div>
       {receipts.length === 0 ? (
-        <p className="muted">No purchases yet. Run the agent or buy from a merchant to see entries here.</p>
+        <div className="group empty">No activity yet</div>
       ) : (
-        <ul className="statement" data-lenis-prevent>
-          {receipts.map((r) => (
-            <li key={r.id} className={`entry ${r.status}`}>
-              <div className="entry-main">
-                <span className="entry-merchant">{MERCHANTS.find((m) => m.id === r.merchant)?.name ?? r.merchant}</span>
-                <span className="entry-amount num">{usd(r.amount_usdc)}</span>
-              </div>
-              <div className="entry-sub">
-                <span className={`tag ${r.status}`}>
-                  {r.status === "blocked" && r.rule_hit && LOOKS_OFF.has(r.rule_hit) ? "Looks off" : r.auto_approved ? "Auto-approved" : STATUS_LABEL[r.status]}
-                </span>
-                <time className="muted num">{new Date(r.created_at).toLocaleTimeString()}</time>
-                {r.tx_signature && (
-                  <a href={txUrl(r.tx_signature)} target="_blank" rel="noreferrer">{short(r.tx_signature)}</a>
-                )}
-              </div>
-              <p className="entry-reason">{r.reason}</p>
-              {r.status !== "paid" && r.detail && <p className={r.status === "approved" ? "entry-note" : "entry-detail"}>{r.detail}</p>}
-              {r.auto_approved && r.detail && <p className="entry-note">{r.detail}</p>}
-              {r.status === "pending_approval" && (
-                <div className="row">
-                  <button className="btn small" disabled={busy !== null} onClick={() => decide(r.id, "approve")}>
-                    {busy === r.id ? "Paying…" : `Approve ${usd(r.amount_usdc)}`}
-                  </button>
-                  <button className="btn small" disabled={busy !== null} onClick={() => decide(r.id, "deny")}>Deny</button>
+        <ul className="group statement" data-lenis-prevent>
+          {receipts.map((r) => {
+            const tile = MERCHANT_TILE[r.merchant] ?? "wallet";
+            const flagged = r.status === "blocked" && r.rule_hit && LOOKS_OFF.has(r.rule_hit);
+            return (
+              <li key={r.id} className={`entry ${r.status}`}>
+                <Tile name={tile} size={36} />
+                <div className="entry-body">
+                  <div className="entry-main">
+                    <span className="entry-merchant">{MERCHANTS.find((m) => m.id === r.merchant)?.name ?? r.merchant}</span>
+                    <span className="entry-amount num">{usd(r.amount_usdc)}</span>
+                  </div>
+                  <div className="entry-sub">
+                    <span className={`tag ${r.status}`}>
+                      {flagged ? "Looks off" : r.auto_approved ? "Auto-approved" : STATUS_LABEL[r.status]}
+                    </span>
+                    <time className="muted num">{new Date(r.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time>
+                    {r.tx_signature && (
+                      <a href={txUrl(r.tx_signature)} target="_blank" rel="noreferrer">Receipt</a>
+                    )}
+                  </div>
+                  {r.status !== "paid" && r.detail && <p className={r.status === "approved" ? "entry-note" : "entry-detail"}>{r.detail}</p>}
+                  {r.auto_approved && r.detail && <p className="entry-note">{r.detail}</p>}
+                  {r.status === "pending_approval" && (
+                    <div className="row">
+                      <button className="btn small" disabled={busy !== null} onClick={() => decide(r.id, "approve")}>
+                        {busy === r.id ? "Paying" : `Approve ${usd(r.amount_usdc)}`}
+                      </button>
+                      <button className="btn small quiet" disabled={busy !== null} onClick={() => decide(r.id, "deny")}>Deny</button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       )}
-      </div>
-    </div>
+    </section>
   );
 }
 
@@ -534,7 +548,7 @@ function Phone({ ledger, onChange }: { ledger: Ledger; onChange: () => void }) {
         <a className="phone-open" href="https://t.me/LeashSBot" target="_blank" rel="noreferrer">Open in Telegram</a>
       </div>
       <div className="phone-feed" ref={feedRef} data-lenis-prevent>
-        {count === 0 && <p className="phone-empty">Run a task and the bot&apos;s messages appear here, the same ones it sends to the owner&apos;s phone.</p>}
+        {count === 0 && <p className="phone-empty">No messages yet</p>}
         {msgs.map((m) => (
           <div key={m.k} className={`bubble ${m.from}`}>
             <p>{m.text}</p>

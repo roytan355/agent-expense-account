@@ -31,12 +31,12 @@ An agent that can pay for things is useful right up until it buys the wrong thin
 
 - **Limits that ask you.** Per purchase, per day and per merchant. Past a limit the agent can't sign on its own; the purchase waits for your approval. There's no hard ceiling above that.
 - **Approvals on your phone.** When a cap blocks something the task needs, @LeashSBot sends you the item, the price and the agent's reason with Approve and Deny buttons.
-- **Auto-approval for small repeat buys.** Past a cap, a purchase of $5 or less from a merchant the agent has already paid goes through without asking, up to $10 a day. It's marked auto-approved on the statement and in Telegram.
+- **Auto-approval for small repeat buys.** Past a cap, a purchase of $5 or less from a merchant the agent has already paid goes through without asking, up to $10 a day. It's marked auto-approved in Activity and in Telegram.
 - **One switch to freeze it.** Pause from the console or send `/pause` in Telegram. Nothing moves until you resume.
 - **Checks that are always on.** Every payment is checked against the merchant's wallet on file, its listed price and your task. If something looks off, nothing is paid and you get an approval request that says why. The task check reads only your words, so a merchant's reply can't talk the agent into buying something else.
-- **A statement you can read.** Every payment and every block is a receipt with the rule that fired and a Solana Explorer link for settled payments.
+- **Activity you can read.** Every payment and every block is listed with the rule that fired and a Solana Explorer link for settled payments.
 
-<img src="docs/console.png" alt="The live console: task box, statement, and the Telegram bot on a phone beside it" width="100%" />
+<img src="docs/console.png" alt="The live console: task box, activity list, rules, and the Telegram bot on a phone beside it" width="100%" />
 
 ## How a payment works
 
@@ -56,7 +56,7 @@ flowchart LR
 
 1. The agent decides what to buy and calls `pay_and_fetch` with a merchant id and a one-line reason. It sees tool results only, never keys.
 2. The x402 client requests the merchant URL and gets a 402 with the price and payee.
-3. Before anything is signed, the rule engine checks the payment against the owner's rules and today's spend. The first rule that fails wins, and it is written to the statement.
+3. Before anything is signed, the rule engine checks the payment against the owner's rules and today's spend. The first rule that fails wins, and it is written to Activity.
 4. If allowed, the client signs a devnet USDC transfer from the agent wallet to the merchant and retries with the payment header.
 5. The facilitator verifies and settles the transfer, and the merchant answers. The facilitator runs inside the app with its own fee-payer wallet, because the public x402.org facilitator was being rate-limited during the build.
 
@@ -143,7 +143,7 @@ node --env-file=.env.local scripts/refill.mjs              # top the agent back 
 | `src/lib/telegram.ts` | @LeashSBot: tasks, approvals, `/today`, `/pause`, `/resume` |
 | `src/lib/store.ts` | Rules and receipts (JSON file in `data/`) |
 | `src/app/page.tsx`, `sections.tsx`, `scene.tsx` | Landing page and the 3D card on a rope |
-| `src/app/console.tsx` | The live console, statement and phone |
+| `src/app/console.tsx` | The live console, activity, rules and phone |
 | `src/app/api/*` | `agent` (streamed NDJSON), `approval`, `pay`, `policy`, `ledger`, `wallets`, `merchant/*`, `shop/*` |
 
 ## Limits and next steps

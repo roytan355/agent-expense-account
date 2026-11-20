@@ -22,7 +22,7 @@ export default function Page() {
         <section id="console" className="console-section">
           <div className="console-head">
             <h2>Try it</h2>
-            <p>Live on Solana devnet. Give the agent a task, watch the rules stop what they should, and answer approvals the way the Telegram bot asks you, on the phone next to the task.</p>
+            <p>Live on Solana devnet. Payments are real devnet USDC.</p>
           </div>
           <Console ledger={ledger} wallets={wallets} refresh={refresh} />
         </section>
