@@ -5,6 +5,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { runAgent, type AgentEvent } from "./agent";
 import { decide } from "./approvals";
+import { FLAG_RULES, FLAG_TEXT } from "./policy";
 import { explorerTx } from "./config";
 import { MERCHANTS } from "./merchants";
 import { getPolicy, listReceipts, updatePolicy, type Receipt } from "./store";
@@ -61,9 +62,6 @@ const RULE_TEXT: Record<string, string> = {
   allowlist: "not something Leash can buy",
   paused: "spending is paused",
   expired: "the card has expired",
-  payee_mismatch: "paid to the wrong wallet",
-  purpose_check: "the task doesn't need it",
-  price_changed: "charged more than its listed price",
 };
 
 async function spentToday() {
@@ -81,7 +79,7 @@ export async function notifyApproval(r: Receipt) {
   await send(
     owner,
     [
-      `Approval needed: ${merchantName(r.merchant)}, ${usd(r.amount_usdc)}`,
+      `${r.rule_hit && FLAG_RULES.has(r.rule_hit) ? "Looks off, approve?" : "Approval needed"}: ${merchantName(r.merchant)}, ${usd(r.amount_usdc)}`,
       `The agent says: ${r.reason}`,
       r.task ? `Your task: ${r.task}` : "",
     ].filter(Boolean).join("\n"),
@@ -96,7 +94,6 @@ async function statusText() {
     `Spent today: ${usd(spent)} of ${usd(p.per_day_max_usdc)}`,
     `Per purchase: up to ${usd(p.per_call_max_usdc)}`,
     `Spending: ${p.paused ? "paused" : "on"}`,
-    `Purpose check: ${p.purpose_check ? "on" : "off"}`,
     `Auto-approve: ${p.auto_approve_max_usdc > 0 ? `up to ${usd(p.auto_approve_max_usdc)} each, ${usd(p.auto_approve_daily_usdc)} a day` : "off"}`,
   ].join("\n");
 }
@@ -123,8 +120,8 @@ async function runTask(chatId: number, task: string) {
       if (e.ok && r.tx) {
         lines.push(send(chatId, `Paid ${name}, ${usd(r.paid_usd ?? 0)}${r.auto_approved ? "\nOver your limit, auto-approved: small purchase from a merchant you've used." : ""}`, [[{ text: "View on Solana Explorer", url: explorerTx(r.tx) }]]));
       } else {
-        const why = (r.rule && RULE_TEXT[r.rule]) ?? r.message ?? "blocked";
-        lines.push(send(chatId, `Blocked ${name}: ${why}.${r.rule === "purpose_check" && r.message ? `\n${r.message}` : ""}`));
+        if (r.rule && FLAG_RULES.has(r.rule)) lines.push(send(chatId, `${name} looks off: ${FLAG_TEXT[r.rule]}. Not paid.`));
+        else lines.push(send(chatId, `Blocked ${name}: ${(r.rule && RULE_TEXT[r.rule]) ?? r.message ?? "blocked"}.`));
       }
     } else if (e.type === "done") {
       lines.push(spentToday().then(async (s) => send(chatId, `${e.text}\n\nSpent today: ${usd(s)} of ${usd((await getPolicy()).per_day_max_usdc)}`)));

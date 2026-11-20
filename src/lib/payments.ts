@@ -9,7 +9,7 @@ import { ExactSvmScheme } from "@x402/svm/exact/client";
 import { SOLANA_DEVNET, USDC_DECIMALS, baseUrl, env } from "./config";
 import { merchantById } from "./merchants";
 import { purposeCheck } from "./guard";
-import { CAP_RULES, autoApproves, evaluate } from "./policy";
+import { CAP_RULES, FLAG_RULES, autoApproves, evaluate } from "./policy";
 import { addReceipt, getPolicy, listReceipts, type Receipt } from "./store";
 
 let signerPromise: Promise<KeyPairSigner> | null = null;
@@ -30,8 +30,8 @@ export type PayResult =
   | { ok: true; receipt: Receipt; data: unknown }
   | { ok: false; receipt: Receipt; error: string };
 
-// An owner approval (or an auto-approval) lifts the spending caps for one
-// payment. Pause, expiry, the payee check and the price check still apply.
+// An owner approval lifts the caps and the looks-off checks for one payment.
+// An auto-approval lifts only the caps. Pause and expiry always apply.
 
 export function payAndFetch(
   merchantId: string,
@@ -80,7 +80,7 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
     };
     const decision = evaluate(policy, receipts, proposed);
     autoNote = null;
-    if (!decision.allow && !(approved && CAP_RULES.has(decision.rule))) {
+    if (!decision.allow && !(approved && (CAP_RULES.has(decision.rule) || FLAG_RULES.has(decision.rule)))) {
       if (!approved && autoApproves(policy, receipts, proposed, decision.rule)) {
         autoNote = `${decision.message} Auto-approved: under $${policy.auto_approve_max_usdc.toFixed(2)} from a merchant you've paid before.`;
       } else {
@@ -89,7 +89,7 @@ async function payAndFetchInner(merchantId: string, reason: string, approved: bo
       }
     }
     // The owner already looked at an approved payment, so it skips this check.
-    if (policy.purpose_check && task && !approved) {
+    if (task && !approved) {
       const v = await purposeCheck({ task, merchant, amountUsdc, reason });
       if (!v.allow) {
         blocked = { rule: "purpose_check", message: v.reason };

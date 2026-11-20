@@ -3,7 +3,7 @@
 // The live owner console: meter, rules, merchants, agent runner and statement.
 // Same behaviour as the original dashboard; the ledger is polled by the page
 // (useLedger) so the 3D card and the rules section can show live values too.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 export type Policy = {
   per_call_max_usdc: number;
@@ -105,7 +105,13 @@ const TASKS = [
 ];
 
 export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; wallets: Wallets | null; refresh: () => void }) {
-  const [tab, setTab] = useState<"rules" | "safety">("rules");
+  const [tab, setTab] = useState<"rules" | "tests">("rules");
+  // Test scenarios are for demos only: open the page with ?demo to see them.
+  const demo = useSyncExternalStore(
+    () => () => {},
+    () => new URLSearchParams(window.location.search).has("demo"),
+    () => false,
+  );
   if (!ledger) return <p className="muted">Loading the account…</p>;
 
   const { policy } = ledger;
@@ -148,13 +154,13 @@ export function Console({ ledger, wallets, refresh }: { ledger: Ledger | null; w
           <Phone ledger={ledger} onChange={refresh} />
           <div className="stack">
             <div className="sheet top tabs" role="tablist">
-              {([["rules", "Spending rules"], ["safety", "Scam protection"]]  as const).map(([k, label]) => (
+              {(demo ? ([["rules", "Spending rules"], ["tests", "Test scenarios"]] as const) : ([["rules", "Spending rules"]] as const)).map(([k, label]) => (
                 <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? "tab on" : "tab"} onClick={() => setTab(k)}>{label}</button>
               ))}
             </div>
             <div className="sheet under">
               {tab === "rules" && <RulesForm policy={policy} onSaved={refresh} />}
-              {tab === "safety" && <Safety policy={policy} onChange={refresh} />}
+              {demo && tab === "tests" && <TestScenarios policy={policy} onChange={refresh} />}
             </div>
           </div>
         </div>
@@ -245,8 +251,8 @@ function RulesForm({ policy, onSaved }: { policy: Policy; onSaved: () => void })
   );
 }
 
-function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) {
-  const toggle = (key: "purpose_check" | "attack_demo" | "price_hike_demo", label: string, help: string) => (
+function TestScenarios({ policy, onChange }: { policy: Policy; onChange: () => void }) {
+  const toggle = (key: "attack_demo" | "price_hike_demo", label: string, help: string) => (
     <label className="toggle">
       <span className="toggle-text">
         <strong>{label}</strong>
@@ -261,21 +267,8 @@ function Safety({ policy, onChange }: { policy: Policy; onChange: () => void }) 
   );
   return (
     <section className="pane">
-      {toggle(
-        "purpose_check",
-        "Purpose check",
-        "A second AI reads only your task and blocks any payment that doesn't serve it, even when it fits under your limits.",
-      )}
-      {toggle(
-        "attack_demo",
-        "Poison the FX merchant",
-        "Demo: the FX reply hides an instruction telling the agent to buy the SOL price too. Ask only about USD/CAD to see it.",
-      )}
-      {toggle(
-        "price_hike_demo",
-        "Coffee shop raises its price at checkout",
-        "Demo: the coffee beans are listed at $14.50 but the checkout asks for $14.99. That's under your limits, and Leash still refuses it.",
-      )}
+      {toggle("attack_demo", "Sneaky merchant", "The FX merchant tries to get the agent to buy something extra.")}
+      {toggle("price_hike_demo", "Price change", "The coffee shop charges more at checkout than it lists.")}
     </section>
   );
 }
@@ -426,7 +419,7 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
               </div>
               <div className="entry-sub">
                 <span className={`tag ${r.status}`}>
-                  {r.rule_hit === "purpose_check" ? "Blocked, purpose check" : r.rule_hit === "price_changed" ? "Blocked, price changed" : r.auto_approved ? "Auto-approved" : STATUS_LABEL[r.status]}
+                  {r.status === "blocked" && r.rule_hit && LOOKS_OFF.has(r.rule_hit) ? "Looks off" : r.auto_approved ? "Auto-approved" : STATUS_LABEL[r.status]}
                 </span>
                 <time className="muted num">{new Date(r.created_at).toLocaleTimeString()}</time>
                 {r.tx_signature && (
@@ -434,7 +427,6 @@ function Statement({ receipts, onChange }: { receipts: Receipt[]; onChange: () =
                 )}
               </div>
               <p className="entry-reason">{r.reason}</p>
-              {r.rule_hit === "purpose_check" && r.task && <p className="entry-note">Your task: {r.task}</p>}
               {r.status !== "paid" && r.detail && <p className={r.status === "approved" ? "entry-note" : "entry-detail"}>{r.detail}</p>}
               {r.auto_approved && r.detail && <p className="entry-note">{r.detail}</p>}
               {r.status === "pending_approval" && (
@@ -461,10 +453,8 @@ const RULE_TEXT: Record<string, string> = {
   allowlist: "not something Leash can buy",
   paused: "spending is paused",
   expired: "the card has expired",
-  payee_mismatch: "paid to the wrong wallet",
-  purpose_check: "the task doesn't need it",
-  price_changed: "charged more than its listed price",
 };
+const LOOKS_OFF = new Set(["payee_mismatch", "price_changed", "purpose_check"]);
 
 type Msg =
   | { k: string; from: "me"; text: string }
@@ -495,7 +485,7 @@ function Phone({ ledger, onChange }: { ledger: Ledger; onChange: () => void }) {
           (r.status === "approved" ? "\n\nYou approved this." : r.status === "denied" ? "\n\nYou denied this." : ""),
         ask: r.status === "pending_approval" ? r : undefined,
       });
-    else if (r.status === "blocked") msgs.push({ k: r.id, from: "bot", text: `Blocked ${name(r.merchant)}: ${(r.rule_hit && RULE_TEXT[r.rule_hit]) ?? "blocked"}.` });
+    else if (r.status === "blocked") msgs.push({ k: r.id, from: "bot", text: r.rule_hit && LOOKS_OFF.has(r.rule_hit) ? `${name(r.merchant)} looks off. Not paid.` : `Blocked ${name(r.merchant)}: ${(r.rule_hit && RULE_TEXT[r.rule_hit]) ?? "blocked"}.` });
   }
   msgs.push(...extra);
   const count = msgs.length;

@@ -33,7 +33,7 @@ An agent that can pay for things is useful right up until it buys the wrong thin
 - **Approvals on your phone.** When a cap blocks something the task needs, @LeashSBot sends you the item, the price and the agent's reason with Approve and Deny buttons.
 - **Auto-approval for small repeat buys.** Past a cap, a purchase of $5 or less from a merchant the agent has already paid goes through without asking, up to $10 a day. It's marked auto-approved on the statement and in Telegram.
 - **One switch to freeze it.** Pause from the console or send `/pause` in Telegram. Nothing moves until you resume.
-- **Scam protection.** A card expiry date, a payee check against the merchant's real wallet, a price check that refuses any checkout asking for more than the listed price, and a purpose check that blocks purchases the task never asked for. That last one stops a merchant's reply from talking the agent into buying something else.
+- **Checks that are always on.** Every payment is checked against the merchant's wallet on file, its listed price and your task. If something looks off, nothing is paid and you get an approval request that says why. The task check reads only your words, so a merchant's reply can't talk the agent into buying something else.
 - **A statement you can read.** Every payment and every block is a receipt with the rule that fired and a Solana Explorer link for settled payments.
 
 <img src="docs/console.png" alt="The live console: task box, statement, and the Telegram bot on a phone beside it" width="100%" />
@@ -46,7 +46,7 @@ flowchart LR
     A -->|"pay_and_fetch(merchant, reason)"| C["x402 client<br/>gets 402 + price"]
     C --> P{"Leash rules<br/>caps, pause, expiry,<br/>payee, price, purpose"}
     P -->|block| R1["Receipt with the rule<br/>nothing signed"]
-    R1 -.->|cap hit| TG["Telegram: Approve / Deny"]
+    R1 -.->|over a limit or looks off| TG["Telegram: Approve / Deny"]
     TG -.->|approve| C
     P -->|allow| S["Sign USDC transfer<br/>agent wallet, server only"]
     S --> F["Facilitator settles<br/>on Solana devnet"]
@@ -60,7 +60,9 @@ flowchart LR
 4. If allowed, the client signs a devnet USDC transfer from the agent wallet to the merchant and retries with the payment header.
 5. The facilitator verifies and settles the transfer, and the merchant answers. The facilitator runs inside the app with its own fee-payer wallet, because the public x402.org facilitator was being rate-limited during the build.
 
-An approval lifts the caps for that one payment, and so does an auto-approval. The pause, expiry, payee and price checks still apply, and the purpose check still runs on auto-approved purchases. A console switch makes the coffee shop ask $14.99 at checkout for beans listed at $14.50, to show the price check: that's under every cap and still refused.
+An owner approval lifts the caps and the looks-off checks (payee, price, purpose) for that one payment. An auto-approval lifts only the caps. Pause and expiry always apply.
+
+For demos, open the console at `/?demo` to get two test scenarios: a merchant that tries to get the agent to buy something extra, and a coffee shop that asks $14.99 at checkout for beans listed at $14.50. Both end as a "Looks off" approval request instead of a payment.
 
 ## Merchants
 
@@ -77,7 +79,7 @@ Everything is sold over x402 from the same app, so the demo runs on its own. Not
 | Eggs, dozen | $5.49 | Leash Shop groceries |
 | Bread, 1 loaf | $3.99 | Leash Shop groceries |
 
-Default rules: $15 per purchase, $40 per day, $20 per merchant, auto-approve up to $5 from known merchants ($10 a day), purpose check on, card valid for 7 days.
+Default rules: $15 per purchase, $40 per day, $20 per merchant, auto-approve up to $5 from known merchants ($10 a day), card valid for 7 days.
 
 ## Telegram bot
 
@@ -91,7 +93,7 @@ It uses long polling, so it works on localhost with no public URL.
 
 ## The agent
 
-With `ANTHROPIC_API_KEY` set, Claude plans the purchases in a tool loop and a second Claude call does the purpose check. The live demo runs without a key: a scripted planner picks merchants from keywords in the task (and understands quantities like "a dozen" or "two") and calls the same tools, so payments, rule checks and receipts are all real. The scripted planner also follows a merchant's `next_purchase` hint on purpose, to show the purpose check catching it.
+With `ANTHROPIC_API_KEY` set, Claude plans the purchases in a tool loop and a second Claude call does the purpose check. The live demo runs without a key: a scripted planner picks merchants from keywords in the task (and understands quantities like "a dozen" or "two") and calls the same tools, so payments, rule checks and receipts are all real. The scripted planner also follows a merchant's `next_purchase` hint on purpose, to show the task check catching it.
 
 ## Devnet addresses
 

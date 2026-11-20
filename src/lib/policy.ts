@@ -33,6 +33,15 @@ export function autoApprovedToday(receipts: Receipt[], now = new Date()) {
 
 export const CAP_RULES = new Set(["per_call_cap", "per_day_cap", "per_merchant_cap"]);
 
+// Checks that catch a purchase that looks off. They're always on, and like the
+// caps they send the purchase to the owner instead of refusing it for good.
+export const FLAG_RULES = new Set(["payee_mismatch", "price_changed", "purpose_check"]);
+export const FLAG_TEXT: Record<string, string> = {
+  payee_mismatch: "the payment address doesn't match the store",
+  price_changed: "the price changed at checkout",
+  purpose_check: "it isn't part of your task",
+};
+
 // Small purchases from a merchant the agent has already paid can go past a
 // cap without waiting for the owner, up to a separate daily allowance.
 export function autoApproves(policy: Policy, receipts: Receipt[], p: Proposed, rule: string, now = new Date()) {
@@ -69,8 +78,7 @@ export function evaluate(
       message: `Merchant asked to be paid at ${p.payTo}, expected ${p.expectedPayTo}.`,
     };
   }
-  // A merchant that asks for more at checkout than its listed price is
-  // refused outright. An approval can't lift this one.
+  // A merchant that asks for more at checkout than its listed price.
   if (p.amountUsdc > p.listedUsdc + 1e-6) {
     return {
       allow: false,
