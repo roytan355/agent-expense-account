@@ -109,7 +109,12 @@ async function systemPrompt() {
 const NUMBER_WORDS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, couple: 2 };
 
 function quantityIn(task: string) {
-  const m = task.toLowerCase().match(/\b(\d+|one|two|three|four|five|couple)\b/);
+  // Prices and measures ("$25", "25 USDC", "2 L", "1 kg") are not counts.
+  const text = task
+    .toLowerCase()
+    .replace(/\$\s*\d+(\.\d+)?/g, " ")
+    .replace(/\b\d+(\.\d+)?\s*(usdc|usd|cad|dollars?|bucks|sol|%|kg|g|l|ml|m)\b/g, " ");
+  const m = text.match(/\b(\d+|one|two|three|four|five|couple)\b/);
   if (!m) return 1;
   return Math.max(1, Number(m[1]) || NUMBER_WORDS[m[1]] || 1);
 }
@@ -214,6 +219,8 @@ async function runScripted(task: string, emit: (e: AgentEvent) => void) {
       const a = await runTool("request_approval", ask, task);
       emit({ type: "tool_result", name: "request_approval", ok: a.ok, result: a.result });
       (looksOff ? flagged : asked).push(`${m.name} ($${amount.toFixed(2)})`);
+      // One approval request per item per task: drop the remaining copies.
+      for (let i = todo.length - 1; i >= 0; i--) if (todo[i].id === id) todo.splice(i, 1);
     }
   }
   emit({
